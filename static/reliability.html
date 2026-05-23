@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reliability Performance & Risk Agent</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --teal-50:  #f0fdfa;
+    --teal-100: #ccfbf1;
+    --teal-200: #99f6e4;
+    --teal-400: #2dd4bf;
+    --teal-500: #14b8a6;
+    --teal-600: #0d9488;
+    --teal-700: #0f766e;
+    --teal-800: #115e59;
+    --slate-50:  #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-400: #94a3b8;
+    --slate-500: #64748b;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-800: #1e293b;
+    --slate-900: #0f172a;
+    --red-50:   #fef2f2;
+    --red-100:  #fee2e2;
+    --red-500:  #ef4444;
+    --red-600:  #dc2626;
+    --amber-50:  #fffbeb;
+    --amber-100: #fef3c7;
+    --amber-500: #f59e0b;
+    --green-50:  #f0fdf4;
+    --green-100: #dcfce7;
+    --green-600: #16a34a;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+    background: var(--slate-100);
+    color: var(--slate-800);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* ─── HEADER ──────────────────────────────────────────────────── */
+  .header {
+    background: #fff;
+    border-bottom: 1px solid var(--slate-200);
+    padding: 0 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-icon {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--teal-500), var(--teal-700));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(13,148,136,.25);
+  }
+  .header h1 {
+    font-size: 16px; font-weight: 700;
+    color: var(--slate-800); letter-spacing: -.01em;
+  }
+  .header p { font-size: 12px; color: var(--slate-400); margin-top: 1px; }
+  .last-run {
+    font-size: 11px; padding: 5px 14px;
+    background: var(--teal-50);
+    border: 1px solid var(--teal-100);
+    border-radius: 20px; color: var(--teal-700);
+    font-weight: 500; white-space: nowrap;
+  }
+
+  /* ─── CONTAINER ───────────────────────────────────────────────── */
+  .container { max-width: 1160px; margin: 0 auto; padding: 24px 16px; }
+  .grid-main {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .left-col { display: flex; flex-direction: column; gap: 16px; }
+
+  /* ─── CARD ────────────────────────────────────────────────────── */
+  .card {
+    background: #fff;
+    border: 1px solid var(--slate-200);
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  .card-label {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .07em;
+    color: var(--slate-400); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  /* ─── UPLOAD ──────────────────────────────────────────────────── */
+  .upload-zone {
+    border: 2px dashed var(--slate-200);
+    border-radius: 10px; padding: 18px 12px;
+    text-align: center; cursor: pointer;
+    transition: border-color .2s, background .2s;
+    position: relative; background: var(--slate-50);
+  }
+  .upload-zone:hover { border-color: var(--teal-400); background: var(--teal-50); }
+  .upload-zone.drag  { border-color: var(--teal-500); background: var(--teal-50); }
+  .upload-zone input {
+    position: absolute; inset: 0; opacity: 0;
+    cursor: pointer; width: 100%; height: 100%;
+  }
+  .upload-icon { font-size: 28px; margin-bottom: 6px; }
+  .upload-zone p { font-size: 13px; color: var(--slate-500); }
+  .upload-hint { font-size: 11px; color: var(--slate-400); margin-top: 3px; }
+
+  .upload-msg {
+    margin-top: 10px; font-size: 12px; line-height: 1.5;
+    padding: 9px 12px; border-radius: 8px; display: none;
+  }
+  .upload-msg.ok {
+    background: var(--green-50); color: var(--green-600);
+    border: 1px solid var(--green-100); display: block;
+  }
+  .upload-msg.err {
+    background: var(--red-50); color: var(--red-600);
+    border: 1px solid var(--red-100); display: block;
+  }
+  .upload-msg.loading {
+    background: var(--teal-50); color: var(--teal-700);
+    border: 1px solid var(--teal-100); display: block;
+  }
+
+  /* ─── MODE TABS ───────────────────────────────────────────────── */
+  .mode-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .mode-tab {
+    flex: 1; padding: 9px 6px;
+    border-radius: 8px;
+    border: 1px solid var(--slate-200);
+    background: var(--slate-50); color: var(--slate-500);
+    font-size: 13px; cursor: pointer;
+    transition: all .18s; text-align: center;
+    font-family: inherit; font-weight: 500;
+  }
+  .mode-tab.active {
+    background: var(--teal-50);
+    border-color: var(--teal-400);
+    color: var(--teal-700); font-weight: 700;
+  }
+  .mode-tab:hover:not(.active) {
+    border-color: var(--slate-300); color: var(--slate-600);
+  }
+
+  /* ─── INFO GRID ───────────────────────────────────────────────── */
+  .info-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; margin-bottom: 14px;
+  }
+  .info-item {
+    background: var(--slate-50);
+    border: 1px solid var(--slate-200);
+    border-radius: 8px; padding: 9px 11px;
+  }
+  .info-item .lbl { font-size: 10px; color: var(--slate-400); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .info-item .val { font-size: 13px; color: var(--slate-700); margin-top: 3px; font-weight: 600; }
+
+  /* ─── RUN BUTTON ──────────────────────────────────────────────── */
+  .btn-run {
+    width: 100%; padding: 11px;
+    background: linear-gradient(135deg, var(--teal-500), var(--teal-700));
+    border: none; border-radius: 8px;
+    color: #fff; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: opacity .18s, box-shadow .18s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: inherit; letter-spacing: .01em;
+    box-shadow: 0 2px 8px rgba(13,148,136,.3);
+  }
+  .btn-run:hover:not(:disabled) {
+    opacity: .92;
+    box-shadow: 0 4px 14px rgba(13,148,136,.35);
+  }
+  .btn-run:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+
+  .spinner {
+    width: 15px; height: 15px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin .65s linear infinite; display: none;
+  }
+  .btn-run.loading .spinner { display: block; }
+  .btn-run.loading .btn-text { opacity: .75; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── OUTPUT ──────────────────────────────────────────────────── */
+  .output-header {
+    display: flex; align-items: center;
+    justify-content: space-between; margin-bottom: 14px;
+  }
+  .output-meta { font-size: 11px; color: var(--slate-400); }
+
+  .badge {
+    font-size: 11px; padding: 3px 10px;
+    border-radius: 20px; font-weight: 700; display: none;
+  }
+  .badge.weekly {
+    background: var(--teal-50); color: var(--teal-700);
+    border: 1px solid var(--teal-200); display: inline-block;
+  }
+  .badge.monthly {
+    background: var(--amber-50); color: #92400e;
+    border: 1px solid var(--amber-100); display: inline-block;
+  }
+
+  .output-body {
+    background: var(--slate-50);
+    border: 1px solid var(--slate-200);
+    border-radius: 10px; padding: 20px;
+    min-height: 240px; max-height: 580px;
+    overflow-y: auto; font-size: 13px;
+    line-height: 1.9; color: var(--slate-700);
+  }
+  .output-body.empty {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--slate-300); font-style: italic; font-size: 14px;
+    min-height: 240px;
+  }
+  .output-body h2 {
+    font-size: 13px; font-weight: 700;
+    color: var(--teal-700); margin: 20px 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--teal-100);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .output-body h2:first-child { margin-top: 0; }
+  .output-body strong { color: var(--slate-800); }
+  .output-body ul { padding-left: 18px; }
+  .output-body li { margin-bottom: 4px; }
+  .output-body p { margin-bottom: 6px; }
+
+  /* ─── HISTORY ─────────────────────────────────────────────────── */
+  .history-header {
+    display: flex; align-items: center;
+    justify-content: space-between; margin-bottom: 14px;
+  }
+  .filter-tabs { display: flex; gap: 6px; }
+  .filter-tab {
+    padding: 5px 14px; border-radius: 20px;
+    font-size: 12px; font-weight: 500;
+    border: 1px solid var(--slate-200);
+    background: var(--slate-50); color: var(--slate-500);
+    cursor: pointer; transition: all .18s; font-family: inherit;
+  }
+  .filter-tab.active {
+    background: var(--teal-50);
+    border-color: var(--teal-300);
+    color: var(--teal-700); font-weight: 700;
+  }
+  .filter-tab:hover:not(.active) {
+    border-color: var(--slate-300); color: var(--slate-600);
+  }
+
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-item {
+    background: var(--slate-50);
+    border: 1px solid var(--slate-200);
+    border-radius: 10px; padding: 12px 14px;
+    cursor: pointer; transition: border-color .18s, box-shadow .18s;
+    display: flex; align-items: flex-start;
+    justify-content: space-between; gap: 10px;
+  }
+  .history-item:hover {
+    border-color: var(--teal-300);
+    box-shadow: 0 2px 8px rgba(13,148,136,.08);
+  }
+  .h-title { font-size: 13px; color: var(--slate-700); font-weight: 600; }
+  .h-meta  { font-size: 11px; color: var(--slate-400); margin-top: 3px; }
+  .h-badge {
+    font-size: 10px; padding: 3px 9px;
+    border-radius: 10px; white-space: nowrap;
+    flex-shrink: 0; margin-top: 1px; font-weight: 700;
+  }
+  .h-badge.weekly  {
+    background: var(--teal-50); color: var(--teal-700);
+    border: 1px solid var(--teal-200);
+  }
+  .h-badge.monthly {
+    background: var(--amber-50); color: #92400e;
+    border: 1px solid var(--amber-100);
+  }
+
+  .empty-state {
+    text-align: center; padding: 28px;
+    color: var(--slate-300); font-size: 13px; font-style: italic;
+  }
+
+  /* ─── DIVIDER ─────────────────────────────────────────────────── */
+  .section-divider {
+    height: 1px; background: var(--slate-200);
+    margin: 20px 0;
+  }
+
+  /* ─── SCROLLBAR ───────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--slate-100); }
+  ::-webkit-scrollbar-thumb { background: var(--teal-200); border-radius: 3px; }
+
+  @media (max-width: 768px) {
+    .grid-main { grid-template-columns: 1fr; }
+    .header { padding: 0 16px; }
+    .last-run { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="header-icon">📊</div>
+    <div>
+      <h1>Reliability Performance & Risk Agent</h1>
+      <p>KPI · Trend · Leading-Lagging Indicator · Risk Hotspot</p>
+    </div>
+  </div>
+  <div class="last-run" id="lastRun">Belum pernah dijalankan</div>
+</div>
+
+<div class="container">
+  <div class="grid-main">
+
+    <!-- ── KIRI ──────────────────────────────────────────────── -->
+    <div class="left-col">
+
+      <!-- Upload -->
+      <div class="card">
+        <div class="card-label">📄 Laporan Bulanan</div>
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept=".docx"
+                 onchange="onFileSelected(event)">
+          <div class="upload-icon">☁️</div>
+          <p>Klik atau drag file laporan</p>
+          <div class="upload-hint">Format: .docx</div>
+        </div>
+        <div class="upload-msg" id="uploadMsg"></div>
+      </div>
+
+      <!-- Run -->
+      <div class="card">
+        <div class="card-label">⚙️ Jalankan Agent</div>
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="tabWeekly"
+                  onclick="selectMode('weekly')">
+            📅 Weekly
+          </button>
+          <button class="mode-tab" id="tabMonthly"
+                  onclick="selectMode('monthly')">
+            📆 Monthly
+          </button>
+        </div>
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="lbl">Mode</div>
+            <div class="val" id="modeDisplay">Weekly</div>
+          </div>
+          <div class="info-item">
+            <div class="lbl">Sumber Data</div>
+            <div class="val">11 Tabel DB</div>
+          </div>
+          <div class="info-item">
+            <div class="lbl">Output</div>
+            <div class="val">6 Section</div>
+          </div>
+          <div class="info-item">
+            <div class="lbl">Model</div>
+            <div class="val">GPT-4o Mini</div>
+          </div>
+        </div>
+        <button class="btn-run" id="btnRun" onclick="runAgent()">
+          <div class="spinner"></div>
+          <span class="btn-text">▶ Jalankan Agent</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── KANAN: OUTPUT ──────────────────────────────────────── -->
+    <div class="card">
+      <div class="output-header">
+        <div class="card-label" style="margin:0">📋 Hasil Analisis</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="badge" id="outputBadge"></span>
+          <span class="output-meta" id="outputTitle"></span>
+        </div>
+      </div>
+      <div class="output-body empty" id="outputBody">
+        Jalankan agent untuk melihat hasil analisis.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── HISTORY ────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="history-header">
+      <div class="card-label" style="margin:0">🕑 Riwayat Output</div>
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-mode=""
+                onclick="switchFilter(this)">Semua</button>
+        <button class="filter-tab" data-mode="weekly"
+                onclick="switchFilter(this)">Weekly</button>
+        <button class="filter-tab" data-mode="monthly"
+                onclick="switchFilter(this)">Monthly</button>
+      </div>
+    </div>
+    <div class="history-list" id="historyList">
+      <div class="empty-state">Memuat riwayat...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let activeMode   = 'weekly';
+  let activeFilter = '';
+
+  // ── Mode ───────────────────────────────────────────────────────────────────
+  function selectMode(mode) {
+    activeMode = mode;
+    document.getElementById('tabWeekly').classList.toggle('active', mode === 'weekly');
+    document.getElementById('tabMonthly').classList.toggle('active', mode === 'monthly');
+    document.getElementById('modeDisplay').textContent =
+      mode === 'weekly' ? 'Weekly' : 'Monthly';
+  }
+
+  // ── Upload ─────────────────────────────────────────────────────────────────
+  const zone = document.getElementById('uploadZone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag');
+    const f = e.dataTransfer.files[0];
+    if (f) doUpload(f);
+  });
+
+  function onFileSelected(e) {
+    const f = e.target.files[0];
+    if (f) doUpload(f);
+    e.target.value = '';
+  }
+
+  async function doUpload(file) {
+    const msg = document.getElementById('uploadMsg');
+    if (!file.name.toLowerCase().endsWith('.docx')) {
+      showMsg(msg, 'err', '❌ Hanya file .docx yang diterima.');
+      return;
+    }
+    showMsg(msg, 'loading', '⏳ Mengupload dan mengekstrak teks...');
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const res  = await fetch('/reliability/upload-laporan', { method: 'POST', body: form });
+      const data = await res.json();
+      if (data.success) {
+        showMsg(msg, 'ok',
+          `✅ ${data.message}\n${data.paragraphs} paragraf · ${data.chars.toLocaleString()} karakter`);
+      } else {
+        showMsg(msg, 'err', `❌ ${data.error}`);
+      }
+    } catch (e) {
+      showMsg(msg, 'err', `❌ Gagal: ${e.message}`);
+    }
+  }
+
+  function showMsg(el, type, text) {
+    el.className = `upload-msg ${type}`;
+    el.textContent = text;
+  }
+
+  // ── Run Agent ──────────────────────────────────────────────────────────────
+  async function runAgent() {
+    const btn    = document.getElementById('btnRun');
+    const output = document.getElementById('outputBody');
+    const badge  = document.getElementById('outputBadge');
+    const title  = document.getElementById('outputTitle');
+
+    btn.disabled = true;
+    btn.classList.add('loading');
+    output.className = 'output-body';
+    output.innerHTML = '<span style="color:var(--slate-400)">⏳ Agent sedang menganalisis data dari database...</span>';
+    badge.className  = 'badge';
+    title.textContent = '';
+
+    try {
+      const res  = await fetch('/reliability/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: activeMode }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        output.innerHTML  = renderMarkdown(data.content);
+        badge.className   = `badge ${activeMode}`;
+        badge.textContent = activeMode === 'weekly' ? 'Weekly' : 'Monthly';
+        title.textContent = data.title;
+        document.getElementById('lastRun').textContent =
+          `Terakhir: ${new Date().toLocaleString('id-ID')}`;
+        loadHistory(activeFilter);
+      } else {
+        output.innerHTML = `<span style="color:var(--red-600)">❌ ${escHtml(data.error)}</span>`;
+      }
+    } catch (e) {
+      output.innerHTML = `<span style="color:var(--red-600)">❌ Gagal: ${e.message}</span>`;
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+    }
+  }
+
+  // ── Render markdown ────────────────────────────────────────────────────────
+  function renderMarkdown(text) {
+    return text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
+      .replace(/\n{2,}/g, '</p><p style="margin-bottom:6px">')
+      .replace(/\n/g, '<br>');
+  }
+
+  // ── History ────────────────────────────────────────────────────────────────
+  function switchFilter(btn) {
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.mode;
+    loadHistory(activeFilter);
+  }
+
+  async function loadHistory(mode) {
+    const list = document.getElementById('historyList');
+    list.innerHTML = '<div class="empty-state">Memuat...</div>';
+    try {
+      const qs  = mode ? `&mode=${mode}` : '';
+      const res = await fetch(`/reliability/history?limit=15${qs}`);
+      const data = await res.json();
+
+      if (!data.data || data.data.length === 0) {
+        list.innerHTML = '<div class="empty-state">Belum ada riwayat output.</div>';
+        return;
+      }
+
+      list.innerHTML = data.data.map(item => {
+        const isMonthly = item.output_type === 'reliability_monthly';
+        const cls   = isMonthly ? 'monthly' : 'weekly';
+        const label = isMonthly ? 'Monthly' : 'Weekly';
+        const date  = new Date(item.created_at).toLocaleString('id-ID', {
+          day: '2-digit', month: 'short', year: 'numeric',
+          hour: '2-digit', minute: '2-digit'
+        });
+        const preview = (item.preview || '').replace(/<[^>]+>/g,'').substring(0, 90);
+        return `
+          <div class="history-item" onclick="loadDetail(${item.id})">
+            <div style="flex:1;min-width:0">
+              <div class="h-title">${escHtml(item.title || 'Tanpa Judul')}</div>
+              <div class="h-meta">${date}${preview ? ' · ' + escHtml(preview) + '…' : ''}</div>
+            </div>
+            <span class="h-badge ${cls}">${label}</span>
+          </div>`;
+      }).join('');
+    } catch (e) {
+      list.innerHTML = `<div class="empty-state">Gagal memuat: ${e.message}</div>`;
+    }
+  }
+
+  async function loadDetail(id) {
+    const output = document.getElementById('outputBody');
+    const badge  = document.getElementById('outputBadge');
+    const title  = document.getElementById('outputTitle');
+
+    output.className = 'output-body';
+    output.innerHTML = '<span style="color:var(--slate-400)">⏳ Memuat...</span>';
+    badge.className  = 'badge';
+
+    try {
+      const res  = await fetch(`/reliability/history/${id}`);
+      const data = await res.json();
+      if (data.success) {
+        const item      = data.data;
+        const isMonthly = item.output_type === 'reliability_monthly';
+        output.innerHTML  = renderMarkdown(item.content);
+        badge.className   = `badge ${isMonthly ? 'monthly' : 'weekly'}`;
+        badge.textContent = isMonthly ? 'Monthly' : 'Weekly';
+        title.textContent = item.title || '';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        output.innerHTML = `<span style="color:var(--red-600)">❌ ${escHtml(data.error)}</span>`;
+      }
+    } catch (e) {
+      output.innerHTML = `<span style="color:var(--red-600)">❌ Gagal: ${e.message}</span>`;
+    }
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  loadHistory('');
+</script>
+</body>
+</html>

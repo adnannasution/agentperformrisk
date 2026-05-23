@@ -158,8 +158,8 @@
   .output-body {
     background: var(--slate-50); border: 1px solid var(--slate-200);
     border-radius: 10px; padding: 20px;
-    min-height: 240px; max-height: 580px;
-    overflow-y: auto; font-size: 13px; line-height: 1.9; color: var(--slate-700);
+    min-height: 240px; max-height: 600px;
+    overflow-y: auto; font-size: 13px; line-height: 1.6; color: var(--slate-700);
   }
   .output-body.empty {
     display: flex; align-items: center; justify-content: center;
@@ -167,13 +167,15 @@
   }
   .output-body h2 {
     font-size: 13px; font-weight: 700; color: var(--teal-700);
-    margin: 20px 0 8px; padding-bottom: 6px;
+    margin: 16px 0 6px; padding-bottom: 5px;
     border-bottom: 2px solid var(--teal-100);
   }
   .output-body h2:first-child { margin-top: 0; }
   .output-body strong { color: var(--slate-800); }
-  .output-body ul { padding-left: 18px; }
-  .output-body li { margin-bottom: 4px; }
+  .output-body p { margin-bottom: 4px; }
+  .output-body ul, .output-body ol { padding-left: 18px; margin: 4px 0 6px; }
+  .output-body li { margin-bottom: 3px; line-height: 1.55; }
+  .output-body li + li { margin-top: 2px; }
 
   /* ── INFO PANEL ──────────────────────────────────────────────── */
   .info-panel-header {
@@ -271,6 +273,39 @@
   .h-badge.monthly { background: var(--amber-50); color: #92400e; border: 1px solid var(--amber-100); }
 
   .empty-state { text-align: center; padding: 28px; color: var(--slate-300); font-size: 13px; font-style: italic; }
+
+  /* ── PROGRESS STEPS ─────────────────────────────────────────── */
+  .progress-wrap {
+    padding: 20px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .progress-title {
+    font-size: 13px; font-weight: 600; color: var(--teal-700);
+    margin-bottom: 4px;
+  }
+  .step {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; color: var(--slate-400);
+    transition: color .3s;
+  }
+  .step.done    { color: var(--slate-700); }
+  .step.active  { color: var(--teal-700); font-weight: 600; }
+  .step-icon {
+    width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; border: 1.5px solid var(--slate-200);
+    background: #fff; transition: all .3s;
+  }
+  .step.done   .step-icon { background: var(--teal-500); border-color: var(--teal-500); color: #fff; }
+  .step.active .step-icon { background: var(--teal-50);  border-color: var(--teal-400); }
+  .step.active .step-icon .dot-spin {
+    width: 8px; height: 8px; border-radius: 50%;
+    border: 1.5px solid var(--teal-300);
+    border-top-color: var(--teal-600);
+    animation: spin .6s linear infinite;
+  }
+  .step-label { flex: 1; }
+  .step-sub   { font-size: 11px; color: var(--slate-400); margin-top: 1px; }
+  .step.active .step-sub { color: var(--teal-500); }
 
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: var(--slate-100); }
@@ -572,14 +607,43 @@
   }
 
   function renderMd(text) {
-    return text
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      .replace(/^## (.+)$/gm,'<h2>$1</h2>')
-      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-      .replace(/^- (.+)$/gm,'<li>$1</li>')
-      .replace(/(<li>.*<\/li>\n?)+/g, m=>`<ul>${m}</ul>`)
-      .replace(/\n{2,}/g,'</p><p style="margin-bottom:6px">')
-      .replace(/\n/g,'<br>');
+    // Escape HTML dulu
+    let s = text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    // Heading ## 
+    s = s.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+
+    // Bold
+    s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // Bullet list: kumpulkan baris - yang berurutan jadi <ul>
+    s = s.replace(/((?:^- .+$\n?)+)/gm, block => {
+      const items = block.trim().split('\n')
+        .map(line => `<li>${line.replace(/^- /, '').trim()}</li>`)
+        .join('');
+      return `<ul>${items}</ul>`;
+    });
+
+    // Numbered list: kumpulkan baris 1. 2. dst jadi <ol>
+    s = s.replace(/((?:^\d+\. .+$\n?)+)/gm, block => {
+      const items = block.trim().split('\n')
+        .map(line => `<li>${line.replace(/^\d+\.\s*/, '').trim()}</li>`)
+        .join('');
+      return `<ol>${items}</ol>`;
+    });
+
+    // Paragraf: baris kosong = ganti paragraf
+    s = s.replace(/\n{2,}/g, '</p><p>');
+    s = s.replace(/\n/g, ' ');
+    s = '<p>' + s + '</p>';
+
+    // Bersihkan p kosong dan p yang wrap ul/ol/h2
+    s = s.replace(/<p>(<h2>|<ul>|<ol>)/g, '$1');
+    s = s.replace(/(<\/h2>|<\/ul>|<\/ol>)<\/p>/g, '$1');
+    s = s.replace(/<p>\s*<\/p>/g, '');
+
+    return s;
   }
 
   // ── History ─────────────────────────────────────────────────────────────────

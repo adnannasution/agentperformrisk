@@ -321,13 +321,15 @@ def _build_context(data: dict) -> str:
 
     pm = sap.get("pm_compliance", {})
     if pm:
-        total = pm.get("total_pm") or 1
-        rate  = round((pm.get("completed_pm", 0) / total) * 100, 1)
+        total_pm    = int(pm.get("total_pm") or 0)
+        completed   = int(pm.get("completed_pm") or 0)
+        overdue_pm  = int(pm.get("overdue_pm") or 0)
+        rate        = round((completed / total_pm) * 100, 1) if total_pm > 0 else 0
         parts.append(
             f"\n=== PM Compliance (PTO3) ===\n"
-            f"Total PM WO: {pm.get('total_pm')} | "
-            f"Completed: {pm.get('completed_pm')} | "
-            f"Overdue: {pm.get('overdue_pm')} | "
+            f"Total PM WO: {total_pm} | "
+            f"Completed: {completed} | "
+            f"Overdue: {overdue_pm} | "
             f"Completion Rate: {rate}%"
         )
 
@@ -395,10 +397,16 @@ def run_reliability_agent(mode: str = "weekly") -> dict:
         raise ValueError(f"mode harus 'weekly' atau 'monthly', bukan '{mode}'")
 
     # 1. Ambil semua data dari DB
-    data = get_reliability_data()
+    try:
+        data = get_reliability_data()
+    except Exception as e:
+        raise RuntimeError(f"Gagal mengambil data dari database: {e}")
 
     # 2. Build konteks
-    context = _build_context(data)
+    try:
+        context = _build_context(data)
+    except Exception as e:
+        raise RuntimeError(f"Gagal membangun konteks: {e}")
 
     # 3. Pilih system prompt
     suffix = _WEEKLY_SUFFIX if mode == "weekly" else _MONTHLY_SUFFIX

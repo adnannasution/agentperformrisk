@@ -100,7 +100,7 @@ def _get_paf() -> dict:
         # Trend realisasi per RU (max 6 bulan terakhir)
         cur.execute("""
             SELECT ru, month_update,
-                   ROUND(AVG(value)::numeric, 2) AS avg_value
+                   ROUND(COALESCE(AVG(value), 0)::numeric, 2) AS avg_value
             FROM paf
             WHERE target_realisasi = 'Realisasi'
             GROUP BY ru, month_update
@@ -222,8 +222,8 @@ def _get_boc() -> dict:
         cur.execute("""
             SELECT ru,
                    COUNT(*) AS total_equipment,
-                   ROUND(AVG(mtbf)::numeric, 2) AS avg_mtbf,
-                   ROUND(AVG(mttr)::numeric, 2) AS avg_mttr,
+                   ROUND(COALESCE(AVG(mtbf), 0)::numeric, 2) AS avg_mtbf,
+                   ROUND(COALESCE(AVG(mttr), 0)::numeric, 2) AS avg_mttr,
                    COALESCE(SUM(frequency), 0) AS total_failures
             FROM boc
             WHERE mtbf IS NOT NULL
@@ -345,11 +345,11 @@ def _get_irkap_summary() -> dict:
                              THEN 1 ELSE 0 END) AS completed,
                    SUM(CASE WHEN status_prognosa ILIKE '%delay%'
                              THEN 1 ELSE 0 END) AS delayed,
-                   ROUND(AVG(
+                   ROUND(COALESCE(AVG(
                        COALESCE(comp15, comp14, comp13, comp12, comp11,
                                 comp10, comp9,  comp8,  comp7,  comp6,
                                 comp5,  comp4,  comp3,  comp2,  comp1, 0)
-                   )::numeric, 1) AS avg_completion_pct
+                   ), 0)::numeric, 1) AS avg_completion_pct
             FROM irkap_actual
             GROUP BY refinery_unit
             ORDER BY refinery_unit

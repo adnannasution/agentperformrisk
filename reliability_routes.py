@@ -174,3 +174,18 @@ def get_history_detail(output_id):
         return jsonify({"success": True, "data": dict(row)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@reliability_bp.route("/reliability/last-report", methods=["GET"])
+def get_last_report():
+    """Ambil info laporan bulanan terakhir yang diupload."""
+    try:
+        from db import fetch_reports
+        rows = fetch_reports(report_type="monthly_reliability", limit=1)
+        if rows:
+            r = dict(rows[0])
+            r.pop("content", None)  # jangan kirim content penuh
+            return jsonify({"success": True, "data": r})
+        return jsonify({"success": True, "data": None})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

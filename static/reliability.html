@@ -96,6 +96,18 @@
   .upload-msg.err     { background: var(--red-50); color: var(--red-600); border: 1px solid var(--red-100); display: block; }
   .upload-msg.loading { background: var(--teal-50); color: var(--teal-700); border: 1px solid var(--teal-100); display: block; }
 
+  .last-report {
+    margin-top: 10px; padding: 10px 12px;
+    background: var(--teal-50); border: 1px solid var(--teal-100);
+    border-radius: 8px; display: none;
+  }
+  .last-report.show { display: block; }
+  .last-report-label { font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .05em; color: var(--teal-600); margin-bottom: 4px; }
+  .last-report-title { font-size: 12px; font-weight: 600; color: var(--teal-800);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .last-report-meta  { font-size: 11px; color: var(--teal-600); margin-top: 2px; }
+
   /* ── MODE TABS ───────────────────────────────────────────────── */
   .mode-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
   .mode-tab {
@@ -301,6 +313,11 @@
           <div class="upload-hint">Format: .docx</div>
         </div>
         <div class="upload-msg" id="uploadMsg"></div>
+        <div class="last-report" id="lastReport">
+          <div class="last-report-label">📄 Laporan Terakhir di DB</div>
+          <div class="last-report-title" id="lastReportTitle">—</div>
+          <div class="last-report-meta"  id="lastReportMeta">—</div>
+        </div>
       </div>
 
       <!-- Run -->
@@ -629,6 +646,34 @@
   }
 
   loadHistory('');
+  loadLastReport();
+  loadLastOutput();
+
+  async function loadLastReport() {
+    try {
+      const res  = await fetch('/reliability/last-report');
+      const data = await res.json();
+      if (data.success && data.data) {
+        const r    = data.data;
+        const date = new Date(r.created_at).toLocaleString('id-ID',{
+          day:'2-digit', month:'short', year:'numeric',
+          hour:'2-digit', minute:'2-digit'
+        });
+        document.getElementById('lastReportTitle').textContent = r.title || 'Laporan Bulanan';
+        document.getElementById('lastReportMeta').textContent  = 'Diupload: ' + date;
+        document.getElementById('lastReport').classList.add('show');
+      }
+    } catch(e) {}
+  }
+
+  async function loadLastOutput() {
+    try {
+      const res  = await fetch('/reliability/history?limit=1');
+      const data = await res.json();
+      if (data.data && data.data.length > 0) loadDetail(data.data[0].id);
+    } catch(e) {}
+  }
+
 </script>
 </body>
 </html>

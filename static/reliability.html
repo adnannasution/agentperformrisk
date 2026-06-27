@@ -557,9 +557,13 @@
   function onFileSelected(e) {
     const f = e.target.files[0]; if (f) doUpload(f); e.target.value = '';
   }
+  const UPLOAD_PIN = '128128';
   async function doUpload(file) {
     const msg = document.getElementById('uploadMsg');
     if (!file.name.toLowerCase().endsWith('.docx')) { showMsg(msg,'err','❌ Hanya file .docx yang diterima.'); return; }
+    const pin = window.prompt('🔒 Masukkan PIN untuk mengupload laporan:');
+    if (pin === null) { return; }
+    if (pin !== UPLOAD_PIN) { showMsg(msg,'err','❌ PIN salah. Upload dibatalkan.'); return; }
     showMsg(msg,'loading','⏳ Mengupload dan mengekstrak teks...');
     const form = new FormData(); form.append('file', file);
     try {

@@ -11,7 +11,7 @@ from reliability_data import get_reliability_data
 DINOIKI_API_KEY = os.getenv("DINOIKI_API_KEY", "")
 
 llm = ChatOpenAI(
-    model="gpt-4",
+    model="gpt-4o",
     api_key=DINOIKI_API_KEY,
     base_url="https://ai.dinoiki.com/v1",
     temperature=0.2,

@@ -65,8 +65,12 @@ Agent membaca dari 13 sumber data:
 
 **Keterbatasan data saat ini** (dinyatakan eksplisit oleh agent di section "Data Quality and
 Limitation" pada setiap output):
-- **Operational Availability (OA)** tidak tersedia sebagai metric terpisah dari PAF, kecuali
-  tabel `boc` punya kolom `oa` / `operational_availability` / `availability` (dicek otomatis).
+- **Operational Availability (OA) resmi** tidak tersedia, kecuali tabel `boc` punya kolom
+  `oa` / `operational_availability` / `availability` (dicek otomatis). Sebagai fallback, agent
+  menghitung **Estimated Availability** dari `boc.mtbf`, `boc.mttr`, `boc.running_hours`, dan
+  `boc.frequency` (Inherent Availability = MTBF/(MTBF+MTTR)) — ini estimasi teknis, bukan OA
+  resmi, dan biasanya lebih tinggi dari OA aktual karena tidak memperhitungkan planned
+  shutdown/turnaround/logistic delay.
 - **AIMS KeyPI resmi** (RBI/PSV/tank/piping/SCE-SECE) belum ada sumber datanya — agent memakai
   ICU + Inspection Plan overdue sebagai proxy asset integrity.
 - **Budget/anggaran maintenance** belum ada sumber datanya, sehingga Maintenance Spend hanya

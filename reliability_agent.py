@@ -42,11 +42,15 @@ tersebut — nyatakan eksplisit "data tidak tersedia untuk RU ini" di section-ny
 mengarang angka.
 
 KETERBATASAN DATA YANG HARUS ANDA SADARI (nyatakan di section Data Quality, jangan diam-diam diabaikan):
-- Operational Availability (OA) hanya tersedia jika muncul eksplisit di blok data
-  "Operational Availability (OA) per RU". Jika blok itu menyatakan data tidak tersedia,
-  JANGAN mengarang angka OA — bahas mismatch OA-vs-PAF hanya sebatas sinyal operasional
-  lain (downtime/unplanned shutdown) yang tersirat dari data yang ada, dan nyatakan
-  keterbatasannya secara eksplisit.
+- Operational Availability (OA) RESMI dari operasi (blok "Operational Availability (OA)
+  RESMI per RU") hanya dipakai bila memang muncul di data. Bila tidak ada, Anda akan melihat
+  blok "Estimated Availability per RU (DIHITUNG dari MTBF/MTTR, BUKAN OA resmi operasi)" —
+  ini adalah Inherent Availability = MTBF/(MTBF+MTTR), dihitung dari running_hours dan
+  estimasi downtime (MTTR x frekuensi failure). WAJIB sebut ini sebagai ESTIMASI TEKNIS,
+  bukan OA resmi, karena tidak memperhitungkan planned shutdown/turnaround/logistic delay —
+  sehingga angkanya biasanya LEBIH TINGGI dari OA aktual di lapangan. Gunakan untuk melihat
+  arah (RU mana yang melemah, trend naik/turun), bukan sebagai angka OA final. Jika kedua
+  blok itu tidak ada sama sekali, nyatakan OA benar-benar tidak tersedia.
 - AIMS KeyPI resmi (RBI/PSV/tank/piping/SCE-SECE) TIDAK tersedia. Gunakan data ICU
   (Integrity Concern Unit) dan Inspection Plan overdue sebagai PROXY asset integrity —
   sebut eksplisit bahwa ini proxy, bukan AIMS KeyPI resmi.
@@ -123,10 +127,10 @@ untuk sub-section RU), jangan diubah, jangan ditambah/dikurangi:
 (Overall reliability health status nasional: Green/Yellow/Orange/Red. Membaik/stagnan/memburuk dan mengapa. KPI yang terlihat baik, sinyal risiko yang perlu perhatian, RU dengan risiko tertinggi, dan management attention yang dibutuhkan.)
 
 ## 2. National Performance Overview
-(Analisis nasional: PAF, sinyal operasional/downtime, unplanned shutdown, MTBF/MTTR, repeated failure, PM compliance, critical backlog, Bad Actor, proxy asset integrity (ICU + inspection overdue), maintenance spend (actual cost), dan konsentrasi risk hotspot.)
+(Analisis nasional: PAF, OA/Estimated Availability (MTBF/MTTR), unplanned shutdown, MTBF/MTTR, repeated failure, PM compliance, critical backlog, Bad Actor, proxy asset integrity (ICU + inspection overdue), maintenance spend (actual cost), dan konsentrasi risk hotspot.)
 
 ## 3. RU Performance Review
-(Satu subsection ### per RU, urutan tetap seperti daftar 6 RU di atas. Untuk tiap RU sertakan: reliability status, PAF/sinyal operasional, leading indicator concern, lagging indicator concern, interpretasi maintenance spend, proxy asset integrity (ICU/inspection), key hotspot, dan management implication.)
+(Satu subsection ### per RU, urutan tetap seperti daftar 6 RU di atas. Untuk tiap RU sertakan: reliability status, PAF/OA/Estimated Availability, leading indicator concern, lagging indicator concern, interpretasi maintenance spend, proxy asset integrity (ICU/inspection), key hotspot, dan management implication.)
 
 ### RU II Dumai & Sungai Pakning
 ### RU III Plaju
@@ -160,7 +164,7 @@ untuk sub-section RU), jangan diubah, jangan ditambah/dikurangi:
 (Untuk tiap isu utama: Issue, Why it matters, RU impacted, Risk if no action, Recommended management action, Suggested owner, Suggested timeframe, Expected outcome. Prioritaskan — jangan beri lebih dari 5 isu utama.)
 
 ## 12. Data Quality and Limitation
-(Nyatakan keterbatasan: OA tidak tersedia sebagai data terpisah; AIMS KeyPI resmi tidak tersedia (pakai proxy ICU+inspection); budget maintenance tidak tersedia; data tren yang pendek/tidak lengkap per RU; RU yang tidak muncul di data; kemungkinan duplikasi equipment/notifikasi jika terlihat dari data.)"""
+(Nyatakan keterbatasan: OA resmi tidak tersedia — bila muncul angka Availability di data, itu ESTIMASI dari MTBF/MTTR (Inherent Availability), bukan OA resmi operasi, dan bisa lebih tinggi dari kondisi aktual; AIMS KeyPI resmi tidak tersedia (pakai proxy ICU+inspection); budget maintenance tidak tersedia; data tren yang pendek/tidak lengkap per RU; RU yang tidak muncul di data; kemungkinan duplikasi equipment/notifikasi jika terlihat dari data.)"""
 
 
 _WEEKLY_SUFFIX = """
@@ -282,13 +286,34 @@ def _build_context(data: dict) -> str:
                 f"Frekuensi Failure: {r.get('frequency')} | Hasil: {r.get('hasil')}"
             )
     if boc.get("oa_by_ru"):
-        parts.append("--- Operational Availability (OA) per RU ---")
+        parts.append("--- Operational Availability (OA) RESMI per RU ---")
         for r in boc["oa_by_ru"]:
             parts.append(f"RU: {r.get('ru')} | Avg OA: {r.get('avg_oa')}%")
+    elif boc.get("estimated_availability_by_ru"):
+        parts.append(
+            "--- Estimated Availability per RU "
+            "(DIHITUNG dari MTBF/MTTR, BUKAN OA resmi operasi) ---"
+        )
+        for r in boc["estimated_availability_by_ru"]:
+            parts.append(
+                f"RU: {r.get('ru')} | "
+                f"Est. Availability: {r.get('est_availability_pct')}% | "
+                f"Total Running Hours: {r.get('total_running_hours')} | "
+                f"Est. Downtime Hours (MTTR x Frequency): {r.get('est_downtime_hours')}"
+            )
+        if boc.get("low_availability_equipment"):
+            parts.append("--- Equipment Estimated Availability Terendah ---")
+            for r in boc["low_availability_equipment"][:10]:
+                parts.append(
+                    f"RU: {r.get('ru')} | Equipment: {r.get('equipment')} | "
+                    f"Est. Availability: {r.get('est_availability_pct')}% | "
+                    f"MTBF: {r.get('mtbf')} | MTTR: {r.get('mttr')}"
+                )
     else:
         parts.append(
             "--- Operational Availability (OA) ---\n"
-            "Data OA tidak tersedia sebagai metric terpisah dari PAF."
+            "Data OA tidak tersedia sebagai metric terpisah dari PAF, dan data "
+            "MTBF/MTTR/running_hours tidak cukup untuk menghitung estimasi."
         )
 
     # ── RCPS ──────────────────────────────────────────────────────────────────

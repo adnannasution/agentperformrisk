@@ -233,9 +233,9 @@ def _get_boc() -> dict:
         """)
         summary = cur.fetchall()
 
-        # Operational Availability — kolom bersifat opsional (tidak dikonfirmasi
-        # ada di skema `boc`). Introspeksi dulu supaya tidak mematahkan query
-        # bila kolomnya tidak ada.
+        # Operational Availability — kolom resmi bersifat opsional (tidak
+        # dikonfirmasi ada di skema `boc`). Introspeksi dulu supaya tidak
+        # mematahkan query bila kolomnya tidak ada.
         oa_by_ru = []
         try:
             cols = _table_columns(cur, "boc")
@@ -257,10 +257,47 @@ def _get_boc() -> dict:
         except Exception:
             oa_by_ru = []
 
+        # Estimated Availability (fallback bila tidak ada kolom OA resmi) —
+        # dihitung dari data yang sudah ada: running_hours (uptime aktual) dan
+        # estimasi downtime = mttr * frequency, per definisi:
+        #   Availability = running_hours / (running_hours + mttr*frequency)
+        # Ini setara secara matematis dengan Inherent Availability
+        # (MTBF / (MTBF + MTTR)) karena MTBF ≈ running_hours / frequency.
+        # Ini ESTIMASI teknis (inherent availability), bukan OA resmi operasi
+        # yang juga memperhitungkan planned shutdown/logistic delay.
+        cur.execute("""
+            SELECT ru,
+                   ROUND(COALESCE(SUM(running_hours), 0)::numeric, 2) AS total_running_hours,
+                   ROUND(COALESCE(SUM(mttr * frequency), 0)::numeric, 2) AS est_downtime_hours,
+                   ROUND(
+                       (COALESCE(SUM(running_hours), 0)
+                        / NULLIF(COALESCE(SUM(running_hours), 0) + COALESCE(SUM(mttr * frequency), 0), 0)
+                        * 100)::numeric, 2
+                   ) AS est_availability_pct
+            FROM boc
+            WHERE running_hours IS NOT NULL AND mttr IS NOT NULL AND frequency IS NOT NULL
+            GROUP BY ru
+            ORDER BY est_availability_pct ASC NULLS LAST
+        """)
+        est_avail_by_ru = cur.fetchall()
+
+        # Equipment dengan estimated availability terendah (proxy hotspot OA)
+        cur.execute("""
+            SELECT ru, equipment, grup_equipment, mtbf, mttr, frequency, running_hours,
+                   ROUND((mtbf / NULLIF(mtbf + mttr, 0) * 100)::numeric, 2) AS est_availability_pct
+            FROM boc
+            WHERE mtbf IS NOT NULL AND mtbf > 0 AND mttr IS NOT NULL
+            ORDER BY est_availability_pct ASC NULLS LAST
+            LIMIT 15
+        """)
+        low_avail_equipment = cur.fetchall()
+
         return {
-            "low_mtbf_equipment": [dict(r) for r in low_mtbf],
-            "summary_by_ru":      [dict(r) for r in summary],
-            "oa_by_ru":           [dict(r) for r in oa_by_ru],
+            "low_mtbf_equipment":          [dict(r) for r in low_mtbf],
+            "summary_by_ru":               [dict(r) for r in summary],
+            "oa_by_ru":                    [dict(r) for r in oa_by_ru],
+            "estimated_availability_by_ru": [dict(r) for r in est_avail_by_ru],
+            "low_availability_equipment":  [dict(r) for r in low_avail_equipment],
         }
 
 

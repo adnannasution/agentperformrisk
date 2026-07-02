@@ -54,10 +54,12 @@ KETERBATASAN DATA YANG HARUS ANDA SADARI (nyatakan di section Data Quality, jang
 - AIMS KeyPI resmi (RBI/PSV/tank/piping/SCE-SECE) TIDAK tersedia. Gunakan data ICU
   (Integrity Concern Unit) dan Inspection Plan overdue sebagai PROXY asset integrity —
   sebut eksplisit bahwa ini proxy, bukan AIMS KeyPI resmi.
-- Maintenance Spend hanya berupa actual cost dari SAP Work Order (bila tersedia di data).
-  TIDAK ada data budget/anggaran, sehingga tidak bisa menghitung budget absorption. Jangan
-  mengklaim spend "sesuai/tidak sesuai budget" — hanya bandingkan actual spend terhadap
-  backlog, repeated failure, dan risk hotspot yang ada.
+- Maintenance Spend: bila blok data menyertakan "Total Plan Cost" (budget) di samping
+  "Total Actual Cost", Anda BOLEH menghitung budget absorption (actual/plan x 100%) dan
+  membahas apakah spend sesuai/tidak sesuai rencana. Bila blok data hanya berisi actual cost
+  tanpa plan cost, JANGAN mengklaim spend "sesuai/tidak sesuai budget" — cukup bandingkan
+  actual spend terhadap backlog, repeated failure, dan risk hotspot yang ada, dan nyatakan
+  bahwa data budget tidak tersedia.
 
 FOKUS ANALISIS:
 - Apakah reliability performance membaik, stagnan, atau memburuk — nasional dan per RU?
@@ -149,7 +151,7 @@ untuk sub-section RU), jangan diubah, jangan ditambah/dikurangi:
 (PAF, downtime/unplanned shutdown, MTBF, MTTR, failure frequency. Sertakan angka.)
 
 ## 7. Maintenance Spend Effectiveness
-(Actual cost by order type/RU/equipment jika tersedia. Apakah spend selaras dengan risk priority, menurunkan backlog/repeated failure, atau timpang — RU dengan spend rendah tapi risk tinggi, atau spend tinggi tapi outcome tidak membaik. Nyatakan bila data budget tidak tersedia.)
+(Actual cost by order type/RU/equipment. Bila data plan cost/budget tersedia, sertakan budget absorption (actual/plan) dan apakah RU/discipline tertentu over/under-spend. Apakah spend selaras dengan risk priority, menurunkan backlog/repeated failure, atau timpang — RU dengan spend rendah tapi risk tinggi, atau spend tinggi tapi outcome tidak membaik. Nyatakan bila data budget/plan cost tidak tersedia.)
 
 ## 8. Asset Integrity Management Review
 (Proxy AIMS dari ICU open + inspection overdue: RU dengan exposure tertinggi, apakah overdue berkorelasi dengan hotspot, potensi dampak ke unplanned shutdown. Nyatakan eksplisit bahwa ini proxy, bukan AIMS KeyPI resmi.)
@@ -164,7 +166,7 @@ untuk sub-section RU), jangan diubah, jangan ditambah/dikurangi:
 (Untuk tiap isu utama: Issue, Why it matters, RU impacted, Risk if no action, Recommended management action, Suggested owner, Suggested timeframe, Expected outcome. Prioritaskan — jangan beri lebih dari 5 isu utama.)
 
 ## 12. Data Quality and Limitation
-(Nyatakan keterbatasan: OA resmi tidak tersedia — bila muncul angka Availability di data, itu ESTIMASI dari MTBF/MTTR (Inherent Availability), bukan OA resmi operasi, dan bisa lebih tinggi dari kondisi aktual; AIMS KeyPI resmi tidak tersedia (pakai proxy ICU+inspection); budget maintenance tidak tersedia; data tren yang pendek/tidak lengkap per RU; RU yang tidak muncul di data; kemungkinan duplikasi equipment/notifikasi jika terlihat dari data.)"""
+(Nyatakan keterbatasan: OA resmi tidak tersedia — bila muncul angka Availability di data, itu ESTIMASI dari MTBF/MTTR (Inherent Availability), bukan OA resmi operasi, dan bisa lebih tinggi dari kondisi aktual; AIMS KeyPI resmi tidak tersedia (pakai proxy ICU+inspection); budget maintenance/plan cost hanya dibahas bila memang muncul di data — nyatakan bila tidak ada; data tren yang pendek/tidak lengkap per RU; RU yang tidak muncul di data; kemungkinan duplikasi equipment/notifikasi jika terlihat dari data.)"""
 
 
 _WEEKLY_SUFFIX = """
@@ -493,34 +495,54 @@ def _build_context(data: dict) -> str:
 
     # ── MAINTENANCE SPEND ─────────────────────────────────────────────────────
     spend = data.get("maintenance_spend", {})
+    has_budget = spend.get("has_budget_data", False)
+
+    if spend.get("absorption"):
+        ab = spend["absorption"]
+        parts.append("\n=== Maintenance Spend — Budget Absorption Nasional ===")
+        parts.append(
+            f"Total Plan Cost: {ab.get('total_plan')} | "
+            f"Total Actual Cost: {ab.get('total_act')} | "
+            f"Absorption: {ab.get('absorption_pct')}%"
+        )
+
     if spend.get("by_order_type"):
-        parts.append("\n=== Maintenance Spend — Actual Cost per Order Type ===")
+        label = "Plan vs Actual Cost" if has_budget else "Actual Cost"
+        parts.append(f"\n=== Maintenance Spend — {label} per Order Type ===")
         for r in spend["by_order_type"]:
-            parts.append(
-                f"Type: {r.get('order_type')} | "
-                f"WO Count: {r.get('wo_count')} | "
-                f"Total Actual Cost: {r.get('total_cost')}"
-            )
+            line = f"Type: {r.get('order_type')} | WO Count: {r.get('wo_count')} | Total Actual Cost: {r.get('total_act')}"
+            if has_budget:
+                line += f" | Total Plan Cost: {r.get('total_plan')}"
+            parts.append(line)
+
     if spend.get("by_ru"):
         parts.append("--- Maintenance Spend per RU ---")
         for r in spend["by_ru"]:
-            parts.append(
-                f"RU: {r.get('ru')} | "
-                f"WO Count: {r.get('wo_count')} | "
-                f"Total Actual Cost: {r.get('total_cost')}"
-            )
+            line = f"RU: {r.get('ru')} | WO Count: {r.get('wo_count')} | Total Actual Cost: {r.get('total_act')}"
+            if has_budget:
+                line += f" | Total Plan Cost: {r.get('total_plan')}"
+            parts.append(line)
+    else:
+        parts.append("--- Maintenance Spend per RU ---\nTidak tersedia (kolom RU tidak ditemukan di sap_work_orders).")
+
     if spend.get("top_equipment"):
         parts.append("--- Top 10 Equipment Berdasarkan Actual Cost (High-Cost Hotspot) ---")
         for r in spend["top_equipment"]:
             parts.append(
                 f"Equipment: {r.get('equipment')} | "
                 f"WO Count: {r.get('wo_count')} | "
-                f"Total Actual Cost: {r.get('total_cost')}"
+                f"Total Actual Cost: {r.get('total_act')}"
             )
+
     if not spend:
         parts.append(
             "\n=== Maintenance Spend ===\n"
-            "Data actual cost tidak tersedia (kolom act_cost tidak ditemukan di sumber data)."
+            "Data actual/plan cost tidak tersedia (kolom total_act_cost tidak ditemukan di sumber data)."
+        )
+    elif not has_budget:
+        parts.append(
+            "\n(Catatan: kolom total_plan_cost tidak ditemukan, sehingga tidak ada perbandingan "
+            "budget vs actual — hanya actual cost yang tersedia.)"
         )
 
     # ── LAPORAN BULANAN ───────────────────────────────────────────────────────

@@ -641,10 +641,11 @@ def _get_sap_data() -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 11. MAINTENANCE SPEND — Actual cost dari SAP Work Order
+# 11. MAINTENANCE SPEND — Plan vs Actual cost dari SAP Work Order
 # Skema sap_work_orders dikelola di luar repo ini (tabel eksternal), jadi kolom
-# act_cost / ru bersifat opsional. Introspeksi information_schema dulu supaya
-# kolom yang tidak ada tidak mematahkan get_reliability_data() secara keseluruhan.
+# total_act_cost / total_plan_cost / ru bersifat opsional. Introspeksi
+# information_schema dulu supaya kolom yang tidak ada tidak mematahkan
+# get_reliability_data() secara keseluruhan.
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _table_columns(cur, table: str) -> set:
@@ -659,31 +660,35 @@ def _get_maintenance_spend() -> dict:
     try:
         with _cursor() as cur:
             cols = _table_columns(cur, "sap_work_orders")
-            if "act_cost" not in cols:
+            if "total_act_cost" not in cols:
                 return {}
+
+            has_plan = "total_plan_cost" in cols
+            plan_sum = "COALESCE(SUM(total_plan_cost), 0)" if has_plan else "NULL"
 
             ru_col = "ru" if "ru" in cols else ("refinery_unit" if "refinery_unit" in cols else None)
 
-            cur.execute("""
+            cur.execute(f"""
                 SELECT order_type,
                        COUNT(*) AS wo_count,
-                       ROUND(COALESCE(SUM(act_cost), 0)::numeric, 2) AS total_cost
+                       ROUND(COALESCE(SUM(total_act_cost), 0)::numeric, 2) AS total_act,
+                       ROUND({plan_sum}::numeric, 2) AS total_plan
                 FROM sap_work_orders
-                WHERE act_cost IS NOT NULL
+                WHERE total_act_cost IS NOT NULL
                 GROUP BY order_type
-                ORDER BY total_cost DESC
+                ORDER BY total_act DESC
             """)
             by_type = cur.fetchall()
 
             cur.execute("""
                 SELECT equipment,
-                       ROUND(COALESCE(SUM(act_cost), 0)::numeric, 2) AS total_cost,
+                       ROUND(COALESCE(SUM(total_act_cost), 0)::numeric, 2) AS total_act,
                        COUNT(*) AS wo_count
                 FROM sap_work_orders
-                WHERE act_cost IS NOT NULL
+                WHERE total_act_cost IS NOT NULL
                   AND equipment IS NOT NULL AND equipment != ''
                 GROUP BY equipment
-                ORDER BY total_cost DESC
+                ORDER BY total_act DESC
                 LIMIT 10
             """)
             top_equipment = cur.fetchall()
@@ -692,19 +697,40 @@ def _get_maintenance_spend() -> dict:
             if ru_col:
                 cur.execute(f"""
                     SELECT {ru_col} AS ru,
-                           ROUND(COALESCE(SUM(act_cost), 0)::numeric, 2) AS total_cost,
+                           ROUND(COALESCE(SUM(total_act_cost), 0)::numeric, 2) AS total_act,
+                           ROUND({plan_sum}::numeric, 2) AS total_plan,
                            COUNT(*) AS wo_count
                     FROM sap_work_orders
-                    WHERE act_cost IS NOT NULL
+                    WHERE total_act_cost IS NOT NULL
                     GROUP BY {ru_col}
-                    ORDER BY total_cost DESC
+                    ORDER BY total_act DESC
                 """)
                 by_ru = cur.fetchall()
 
+            # Budget absorption nasional (hanya jika total_plan_cost ada)
+            absorption = {}
+            if has_plan:
+                cur.execute("""
+                    SELECT ROUND(COALESCE(SUM(total_act_cost), 0)::numeric, 2) AS total_act,
+                           ROUND(COALESCE(SUM(total_plan_cost), 0)::numeric, 2) AS total_plan
+                    FROM sap_work_orders
+                    WHERE total_act_cost IS NOT NULL
+                """)
+                row = cur.fetchone()
+                total_act  = float(row["total_act"] or 0)
+                total_plan = float(row["total_plan"] or 0)
+                absorption = {
+                    "total_act":   total_act,
+                    "total_plan":  total_plan,
+                    "absorption_pct": round((total_act / total_plan) * 100, 1) if total_plan > 0 else None,
+                }
+
             return {
-                "by_order_type": [dict(r) for r in by_type],
-                "top_equipment": [dict(r) for r in top_equipment],
-                "by_ru":         [dict(r) for r in by_ru],
+                "has_budget_data": has_plan,
+                "by_order_type":   [dict(r) for r in by_type],
+                "top_equipment":   [dict(r) for r in top_equipment],
+                "by_ru":           [dict(r) for r in by_ru],
+                "absorption":      absorption,
             }
     except Exception:
         return {}

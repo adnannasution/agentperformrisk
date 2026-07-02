@@ -59,8 +59,9 @@ Agent membaca dari 13 sumber data:
 - RCPS, RCPS Rekomendasi, IRKAP Program & Actual
 - Critical Equipment, Inspection Plan
 - SAP Notifications & Work Orders
-- Maintenance Spend — actual cost dari `sap_work_orders.act_cost` (bila kolomnya ada di DB;
-  diintrospeksi otomatis via `information_schema`, tidak wajib)
+- Maintenance Spend — plan cost & actual cost dari `sap_work_orders.total_plan_cost` /
+  `sap_work_orders.total_act_cost` (diintrospeksi otomatis via `information_schema`; bila
+  `total_plan_cost` tidak ada, agent tetap jalan hanya dengan actual cost)
 - Laporan Bulanan (upload manual)
 
 **Keterbatasan data saat ini** (dinyatakan eksplisit oleh agent di section "Data Quality and
@@ -73,5 +74,5 @@ Limitation" pada setiap output):
   shutdown/turnaround/logistic delay.
 - **AIMS KeyPI resmi** (RBI/PSV/tank/piping/SCE-SECE) belum ada sumber datanya — agent memakai
   ICU + Inspection Plan overdue sebagai proxy asset integrity.
-- **Budget/anggaran maintenance** belum ada sumber datanya, sehingga Maintenance Spend hanya
-  membahas actual cost tanpa perbandingan ke budget.
+- **Maintenance Spend per RU** hanya tersedia bila `sap_work_orders` punya kolom `ru` atau
+  `refinery_unit` (dicek otomatis) — bila tidak ada, hanya breakdown per order type & equipment.

@@ -78,6 +78,8 @@ def get_reliability_data() -> dict:
         "inspection_overdue": _get_inspection_overdue(),
         "sap":                _get_sap_data(),
         "maintenance_spend":  _get_maintenance_spend(),
+        "maintenance_budget": _get_maintenance_budget(),
+        "asset_integrity_extra": _get_asset_integrity_extra(),
         "laporan_bulanan":    _get_laporan_bulanan(),
     }
 
@@ -656,6 +658,14 @@ def _table_columns(cur, table: str) -> set:
     return {r["column_name"] for r in cur.fetchall()}
 
 
+def _table_exists(cur, table: str) -> bool:
+    cur.execute(
+        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = %s) AS ex",
+        (table,),
+    )
+    return bool(cur.fetchone()["ex"])
+
+
 def _get_maintenance_spend() -> dict:
     try:
         with _cursor() as cur:
@@ -693,7 +703,14 @@ def _get_maintenance_spend() -> dict:
             """)
             top_equipment = cur.fetchall()
 
+            # RU breakdown: pakai kolom ru/refinery_unit langsung bila ada di
+            # sap_work_orders; kalau tidak ada, fallback join ke
+            # master_data_equipment.maintenance_plant lewat kolom equipment.
+            # CATATAN: maintenance_plant kemungkinan berupa kode plant SAP,
+            # bukan nama RU display (RU II Dumai, dst) seperti di tabel lain —
+            # ru_source dicatat supaya agent bisa menyoroti bila labelnya beda.
             by_ru = []
+            ru_source = None
             if ru_col:
                 cur.execute(f"""
                     SELECT {ru_col} AS ru,
@@ -706,6 +723,26 @@ def _get_maintenance_spend() -> dict:
                     ORDER BY total_act DESC
                 """)
                 by_ru = cur.fetchall()
+                ru_source = f"sap_work_orders.{ru_col}"
+            elif _table_exists(cur, "master_data_equipment"):
+                me_cols = _table_columns(cur, "master_data_equipment")
+                if "equipment" in me_cols and "maintenance_plant" in me_cols:
+                    plan_sum_join = (
+                        "COALESCE(SUM(wo.total_plan_cost), 0)" if has_plan else "NULL"
+                    )
+                    cur.execute(f"""
+                        SELECT me.maintenance_plant AS ru,
+                               ROUND(COALESCE(SUM(wo.total_act_cost), 0)::numeric, 2) AS total_act,
+                               ROUND({plan_sum_join}::numeric, 2) AS total_plan,
+                               COUNT(*) AS wo_count
+                        FROM sap_work_orders wo
+                        JOIN master_data_equipment me ON wo.equipment = me.equipment
+                        WHERE wo.total_act_cost IS NOT NULL
+                        GROUP BY me.maintenance_plant
+                        ORDER BY total_act DESC
+                    """)
+                    by_ru = cur.fetchall()
+                    ru_source = "master_data_equipment.maintenance_plant (join via equipment)"
 
             # Budget absorption nasional (hanya jika total_plan_cost ada)
             absorption = {}
@@ -730,6 +767,7 @@ def _get_maintenance_spend() -> dict:
                 "by_order_type":   [dict(r) for r in by_type],
                 "top_equipment":   [dict(r) for r in top_equipment],
                 "by_ru":           [dict(r) for r in by_ru],
+                "ru_source":       ru_source,
                 "absorption":      absorption,
             }
     except Exception:
@@ -737,7 +775,175 @@ def _get_maintenance_spend() -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 12. LAPORAN BULANAN
+# 12. MAINTENANCE BUDGET — anggaran_maintenance (skema belum dikonfirmasi)
+# Tabel ini ada di DB (domain "Keuangan" pada katalog Equipment 360°) tapi
+# kolomnya belum ada contoh query. Dump kolom + sample data mentah dan biarkan
+# agent menginterpretasikan secara kualitatif — JANGAN menebak nama kolom
+# nilai/RU untuk agregasi SQL karena bisa salah.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _get_maintenance_budget() -> dict:
+    try:
+        with _cursor() as cur:
+            if not _table_exists(cur, "anggaran_maintenance"):
+                return {}
+            cols = sorted(_table_columns(cur, "anggaran_maintenance"))
+            if not cols:
+                return {}
+            col_list = ", ".join(f'"{c}"' for c in cols)
+            cur.execute(f'SELECT {col_list} FROM anggaran_maintenance LIMIT 30')
+            rows = cur.fetchall()
+            return {
+                "columns":     cols,
+                "sample_rows": [dict(r) for r in rows],
+            }
+    except Exception:
+        return {}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 13. ASSET INTEGRITY EXTRA — Pipeline Inspection, ATG, Metering, Zero Clamp,
+# Readiness Tank/Jetty/SPM. Proxy AIMS yang lebih kaya dari ICU+Inspection Plan.
+# Semua query defensif (introspeksi tabel dulu) karena tabel-tabel ini dikelola
+# di luar repo (shared dengan project Equipment 360°). Kegagalan satu sumber
+# tidak boleh menghapus sumber lain, jadi tiap blok dibungkus try/except sendiri.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _get_asset_integrity_extra() -> dict:
+    result = {}
+
+    # Pipeline Inspection — piping/corrosion finding
+    try:
+        with _cursor() as cur:
+            if _table_exists(cur, "pipeline_inspection"):
+                cur.execute("""
+                    SELECT refinery_unit,
+                           COUNT(*) AS total,
+                           SUM(CASE WHEN next_inspection_date IS NOT NULL
+                                     AND next_inspection_date < CURRENT_DATE
+                                    THEN 1 ELSE 0 END) AS overdue,
+                           SUM(CASE WHEN rem_life_years IS NOT NULL AND rem_life_years < 2
+                                    THEN 1 ELSE 0 END) AS low_rem_life,
+                           SUM(CASE WHEN jumlah_temporary_repair IS NOT NULL
+                                     AND jumlah_temporary_repair > 0
+                                    THEN 1 ELSE 0 END) AS active_temp_repair
+                    FROM pipeline_inspection
+                    GROUP BY refinery_unit
+                    ORDER BY overdue DESC
+                """)
+                summary = cur.fetchall()
+
+                cur.execute("""
+                    SELECT refinery_unit, area, unit, fluida_service, nps,
+                           last_measured_thickness, rem_life_years,
+                           jumlah_temporary_repair, next_inspection_date
+                    FROM pipeline_inspection
+                    WHERE (rem_life_years IS NOT NULL AND rem_life_years < 2)
+                       OR (jumlah_temporary_repair IS NOT NULL AND jumlah_temporary_repair > 0)
+                    ORDER BY rem_life_years ASC NULLS LAST
+                    LIMIT 15
+                """)
+                hotspot = cur.fetchall()
+
+                result["pipeline"] = {
+                    "summary_by_ru": [dict(r) for r in summary],
+                    "hotspot":       [dict(r) for r in hotspot],
+                }
+    except Exception:
+        pass
+
+    # ATG Monitoring — sertifikasi tangki (expired cert)
+    try:
+        with _cursor() as cur:
+            if _table_exists(cur, "atg_monitoring"):
+                cur.execute("""
+                    SELECT refinery_unit,
+                           COUNT(*) AS total,
+                           SUM(CASE WHEN date_expired_atg IS NOT NULL
+                                     AND date_expired_atg < CURRENT_DATE
+                                    THEN 1 ELSE 0 END) AS expired
+                    FROM atg_monitoring
+                    GROUP BY refinery_unit
+                    ORDER BY expired DESC
+                """)
+                result["atg"] = {"summary_by_ru": [dict(r) for r in cur.fetchall()]}
+    except Exception:
+        pass
+
+    # Metering Monitoring — sertifikasi metering (expired cert)
+    try:
+        with _cursor() as cur:
+            if _table_exists(cur, "metering_monitoring"):
+                cur.execute("""
+                    SELECT refinery_unit,
+                           COUNT(*) AS total,
+                           SUM(CASE WHEN date_expired_metering IS NOT NULL
+                                     AND date_expired_metering < CURRENT_DATE
+                                    THEN 1 ELSE 0 END) AS expired
+                    FROM metering_monitoring
+                    GROUP BY refinery_unit
+                    ORDER BY expired DESC
+                """)
+                result["metering"] = {"summary_by_ru": [dict(r) for r in cur.fetchall()]}
+    except Exception:
+        pass
+
+    # Zero Clamp — temporary repair aktif di piping (exposure signal).
+    # Konvensi status "closed" (CLOSED/SELESAI/LEPAS) diambil dari logic
+    # health-score di project Equipment 360° (db_equipment.py).
+    try:
+        with _cursor() as cur:
+            if _table_exists(cur, "zero_clamp"):
+                cur.execute("""
+                    SELECT ru,
+                           COUNT(*) AS total,
+                           SUM(CASE WHEN UPPER(COALESCE(status, '')) NOT IN ('CLOSED', 'SELESAI', 'LEPAS')
+                                    THEN 1 ELSE 0 END) AS active
+                    FROM zero_clamp
+                    GROUP BY ru
+                    ORDER BY active DESC
+                """)
+                summary = cur.fetchall()
+
+                cur.execute("""
+                    SELECT ru, area, unit, services, description, type_damage,
+                           tanggal_dipasang, status
+                    FROM zero_clamp
+                    WHERE UPPER(COALESCE(status, '')) NOT IN ('CLOSED', 'SELESAI', 'LEPAS')
+                    ORDER BY tanggal_dipasang ASC NULLS LAST
+                    LIMIT 15
+                """)
+                active_list = cur.fetchall()
+
+                result["zero_clamp"] = {
+                    "summary_by_ru": [dict(r) for r in summary],
+                    "active_list":   [dict(r) for r in active_list],
+                }
+    except Exception:
+        pass
+
+    # Readiness Tank/Jetty/SPM — jumlah item per RU saja. Konvensi nilai
+    # status_* (COI, cathodic, grounding, dll.) belum diverifikasi, jadi tidak
+    # dihitung pass/fail — hanya untuk kelengkapan konteks.
+    for label, table in (("tank", "readiness_tank"), ("jetty", "readiness_jetty"), ("spm", "readiness_spm")):
+        try:
+            with _cursor() as cur:
+                if _table_exists(cur, table):
+                    cur.execute(f"""
+                        SELECT refinery_unit, COUNT(*) AS total
+                        FROM {table}
+                        GROUP BY refinery_unit
+                        ORDER BY refinery_unit
+                    """)
+                    result.setdefault("readiness", {})[label] = [dict(r) for r in cur.fetchall()]
+        except Exception:
+            pass
+
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 14. LAPORAN BULANAN
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _get_laporan_bulanan() -> dict:

@@ -54,15 +54,28 @@ berdasarkan KPI, trend, leading-lagging indicator, dan risk hotspot.
 
 ## Sumber Data
 
-Agent membaca dari 13 sumber data:
-- PAF, Issue PAF, Bad Actor, ICU, BOC (MTBF/MTTR)
+Agent membaca dari 16 sumber data:
+- PAF, Issue PAF, Bad Actor, ICU, BOC (MTBF/MTTR + Estimated Availability)
 - RCPS, RCPS Rekomendasi, IRKAP Program & Actual
 - Critical Equipment, Inspection Plan
 - SAP Notifications & Work Orders
 - Maintenance Spend — plan cost & actual cost dari `sap_work_orders.total_plan_cost` /
   `sap_work_orders.total_act_cost` (diintrospeksi otomatis via `information_schema`; bila
-  `total_plan_cost` tidak ada, agent tetap jalan hanya dengan actual cost)
+  `total_plan_cost` tidak ada, agent tetap jalan hanya dengan actual cost). RU breakdown pakai
+  kolom `ru`/`refinery_unit` di `sap_work_orders` bila ada, atau fallback join ke
+  `master_data_equipment.maintenance_plant` lewat kolom `equipment`.
+- Anggaran Maintenance — dump mentah dari tabel `anggaran_maintenance` (skema belum
+  diverifikasi; agent membaca kolom apa adanya dan menandainya sebagai data belum terverifikasi)
+- Asset Integrity Extra — proxy AIMS tambahan: Pipeline Inspection (piping/corrosion), ATG
+  & Metering Monitoring (sertifikasi expired), Zero Clamp (temporary repair aktif), dan
+  Readiness Tank/Jetty/SPM (jumlah item, tanpa interpretasi pass/fail)
 - Laporan Bulanan (upload manual)
+
+Semua tabel di atas (selain `reports` dan `reliability_outputs`) adalah tabel eksternal yang
+dikelola oleh sistem lain (mis. project "Equipment 360°") dan hanya dibaca (`SELECT`) oleh
+repo ini — tidak ada migrasi untuk tabel-tabel tsb di `db.py`. Query ke kolom yang belum
+dikonfirmasi selalu diintrospeksi lewat `information_schema` dan gagal-aman (kembalikan data
+kosong, bukan error) bila skemanya berbeda dari asumsi.
 
 **Keterbatasan data saat ini** (dinyatakan eksplisit oleh agent di section "Data Quality and
 Limitation" pada setiap output):
@@ -72,7 +85,8 @@ Limitation" pada setiap output):
   `boc.frequency` (Inherent Availability = MTBF/(MTBF+MTTR)) — ini estimasi teknis, bukan OA
   resmi, dan biasanya lebih tinggi dari OA aktual karena tidak memperhitungkan planned
   shutdown/turnaround/logistic delay.
-- **AIMS KeyPI resmi** (RBI/PSV/tank/piping/SCE-SECE) belum ada sumber datanya — agent memakai
-  ICU + Inspection Plan overdue sebagai proxy asset integrity.
-- **Maintenance Spend per RU** hanya tersedia bila `sap_work_orders` punya kolom `ru` atau
-  `refinery_unit` (dicek otomatis) — bila tidak ada, hanya breakdown per order type & equipment.
+- **AIMS KeyPI resmi tunggal** (skor RBI/PSV formal) belum ada — agent memakai proxy gabungan
+  (ICU, Inspection Plan, Pipeline Inspection, ATG/Metering, Zero Clamp, Readiness).
+- **Label RU pada Maintenance Spend** bisa berupa kode plant SAP (bila diambil via
+  `master_data_equipment.maintenance_plant`), bukan nama RU resmi seperti di sumber data lain.
+- **Anggaran Maintenance** dibaca apa adanya karena skema kolomnya belum diverifikasi manual.

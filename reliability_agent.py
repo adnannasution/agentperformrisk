@@ -51,15 +51,26 @@ KETERBATASAN DATA YANG HARUS ANDA SADARI (nyatakan di section Data Quality, jang
   sehingga angkanya biasanya LEBIH TINGGI dari OA aktual di lapangan. Gunakan untuk melihat
   arah (RU mana yang melemah, trend naik/turun), bukan sebagai angka OA final. Jika kedua
   blok itu tidak ada sama sekali, nyatakan OA benar-benar tidak tersedia.
-- AIMS KeyPI resmi (RBI/PSV/tank/piping/SCE-SECE) TIDAK tersedia. Gunakan data ICU
-  (Integrity Concern Unit) dan Inspection Plan overdue sebagai PROXY asset integrity —
-  sebut eksplisit bahwa ini proxy, bukan AIMS KeyPI resmi.
+- AIMS KeyPI resmi tunggal (skor RBI/PSV formal) TIDAK tersedia sebagai satu angka. Tapi
+  Anda punya beberapa PROXY granular: ICU (Integrity Concern Unit), Inspection Plan overdue,
+  Pipeline Inspection (piping/corrosion — overdue, remaining life, temporary repair aktif),
+  ATG & Metering Monitoring (sertifikasi expired), Zero Clamp (temporary repair aktif di
+  piping — sinyal exposure kuat), dan Readiness Tank/Jetty/SPM (jumlah item saja, konvensi
+  status_* belum diverifikasi jadi JANGAN simpulkan pass/fail dari situ). Gabungkan proxy-proxy
+  ini untuk section Asset Integrity Management Review, dan tetap sebut eksplisit bahwa ini
+  proxy gabungan, bukan AIMS KeyPI resmi terverifikasi.
 - Maintenance Spend: bila blok data menyertakan "Total Plan Cost" (budget) di samping
-  "Total Actual Cost", Anda BOLEH menghitung budget absorption (actual/plan x 100%) dan
-  membahas apakah spend sesuai/tidak sesuai rencana. Bila blok data hanya berisi actual cost
-  tanpa plan cost, JANGAN mengklaim spend "sesuai/tidak sesuai budget" — cukup bandingkan
-  actual spend terhadap backlog, repeated failure, dan risk hotspot yang ada, dan nyatakan
-  bahwa data budget tidak tersedia.
+  "Total Actual Cost" — baik dari sap_work_orders maupun dari blok "Anggaran Maintenance" —
+  Anda BOLEH menghitung/diskusikan budget absorption dan apakah spend sesuai/tidak sesuai
+  rencana. Blok "Anggaran Maintenance" memiliki skema BELUM diverifikasi (kolom mentah) —
+  baca kualitatif, jangan hitung ulang angka dari situ kecuali makna kolomnya jelas dari
+  namanya. Bila plan cost benar-benar tidak ada di kedua sumber, JANGAN mengklaim spend
+  "sesuai/tidak sesuai budget" — cukup bandingkan actual spend terhadap backlog, repeated
+  failure, dan risk hotspot yang ada.
+- Maintenance Spend per RU: jika sumber labelnya adalah "master_data_equipment.maintenance_plant"
+  (bukan kolom ru/refinery_unit langsung), kemungkinan itu KODE PLANT SAP, bukan nama RU resmi
+  (RU II Dumai, dst). Jangan asumsikan otomatis identik dengan nama RU di sumber data lain —
+  sebut sebagai keterbatasan bila formatnya terlihat berbeda (misal berupa kode angka/huruf).
 
 FOKUS ANALISIS:
 - Apakah reliability performance membaik, stagnan, atau memburuk — nasional dan per RU?
@@ -154,7 +165,7 @@ untuk sub-section RU), jangan diubah, jangan ditambah/dikurangi:
 (Actual cost by order type/RU/equipment. Bila data plan cost/budget tersedia, sertakan budget absorption (actual/plan) dan apakah RU/discipline tertentu over/under-spend. Apakah spend selaras dengan risk priority, menurunkan backlog/repeated failure, atau timpang — RU dengan spend rendah tapi risk tinggi, atau spend tinggi tapi outcome tidak membaik. Nyatakan bila data budget/plan cost tidak tersedia.)
 
 ## 8. Asset Integrity Management Review
-(Proxy AIMS dari ICU open + inspection overdue: RU dengan exposure tertinggi, apakah overdue berkorelasi dengan hotspot, potensi dampak ke unplanned shutdown. Nyatakan eksplisit bahwa ini proxy, bukan AIMS KeyPI resmi.)
+(Proxy AIMS gabungan dari ICU open, inspection overdue, Pipeline Inspection (piping/corrosion), ATG/Metering (sertifikasi expired), dan Zero Clamp (temporary repair aktif): RU dengan exposure tertinggi, apakah overdue/expired/temporary-repair berkorelasi dengan hotspot yang sama, potensi dampak ke unplanned shutdown. Sertakan Readiness Tank/Jetty/SPM hanya sebagai info jumlah item (jangan simpulkan pass/fail). Nyatakan eksplisit bahwa ini proxy gabungan, bukan AIMS KeyPI resmi.)
 
 ## 9. Risk Hotspots
 (Daftar RU / unit / equipment / failure mode dengan konsentrasi risiko tertinggi. Format per item: nama → risk driver → leading signal → lagging impact → urgency (Critical/High/Medium/Low) → recommended action.)
@@ -166,7 +177,7 @@ untuk sub-section RU), jangan diubah, jangan ditambah/dikurangi:
 (Untuk tiap isu utama: Issue, Why it matters, RU impacted, Risk if no action, Recommended management action, Suggested owner, Suggested timeframe, Expected outcome. Prioritaskan — jangan beri lebih dari 5 isu utama.)
 
 ## 12. Data Quality and Limitation
-(Nyatakan keterbatasan: OA resmi tidak tersedia — bila muncul angka Availability di data, itu ESTIMASI dari MTBF/MTTR (Inherent Availability), bukan OA resmi operasi, dan bisa lebih tinggi dari kondisi aktual; AIMS KeyPI resmi tidak tersedia (pakai proxy ICU+inspection); budget maintenance/plan cost hanya dibahas bila memang muncul di data — nyatakan bila tidak ada; data tren yang pendek/tidak lengkap per RU; RU yang tidak muncul di data; kemungkinan duplikasi equipment/notifikasi jika terlihat dari data.)"""
+(Nyatakan keterbatasan: OA resmi tidak tersedia — bila muncul angka Availability di data, itu ESTIMASI dari MTBF/MTTR (Inherent Availability), bukan OA resmi operasi, dan bisa lebih tinggi dari kondisi aktual; AIMS KeyPI resmi tunggal tidak tersedia (pakai proxy gabungan ICU/inspection/pipeline/ATG-metering/zero-clamp, dan readiness hanya jumlah item); budget maintenance/plan cost hanya dibahas bila memang muncul di data (sap_work_orders atau anggaran_maintenance) — nyatakan bila tidak ada, dan bila skema anggaran_maintenance masih berupa kolom mentah yang belum diverifikasi; label RU pada Maintenance Spend mungkin berasal dari kode plant SAP (bila lewat master_data_equipment) bukan nama RU resmi; data tren yang pendek/tidak lengkap per RU; RU yang tidak muncul di data; kemungkinan duplikasi equipment/notifikasi jika terlihat dari data.)"""
 
 
 _WEEKLY_SUFFIX = """
@@ -516,14 +527,21 @@ def _build_context(data: dict) -> str:
             parts.append(line)
 
     if spend.get("by_ru"):
-        parts.append("--- Maintenance Spend per RU ---")
+        ru_source = spend.get("ru_source") or "tidak diketahui"
+        parts.append(f"--- Maintenance Spend per RU (sumber label RU: {ru_source}) ---")
+        if "maintenance_plant" in ru_source:
+            parts.append(
+                "CATATAN: label RU di atas berasal dari kode plant SAP (maintenance_plant), "
+                "kemungkinan TIDAK sama formatnya dengan nama RU resmi (RU II Dumai, dst) "
+                "yang dipakai sumber data lain — cocokkan secara kualitatif, jangan diasumsikan identik."
+            )
         for r in spend["by_ru"]:
             line = f"RU: {r.get('ru')} | WO Count: {r.get('wo_count')} | Total Actual Cost: {r.get('total_act')}"
             if has_budget:
                 line += f" | Total Plan Cost: {r.get('total_plan')}"
             parts.append(line)
     else:
-        parts.append("--- Maintenance Spend per RU ---\nTidak tersedia (kolom RU tidak ditemukan di sap_work_orders).")
+        parts.append("--- Maintenance Spend per RU ---\nTidak tersedia (tidak ada kolom RU di sap_work_orders maupun mapping via master_data_equipment).")
 
     if spend.get("top_equipment"):
         parts.append("--- Top 10 Equipment Berdasarkan Actual Cost (High-Cost Hotspot) ---")
@@ -543,6 +561,85 @@ def _build_context(data: dict) -> str:
         parts.append(
             "\n(Catatan: kolom total_plan_cost tidak ditemukan, sehingga tidak ada perbandingan "
             "budget vs actual — hanya actual cost yang tersedia.)"
+        )
+
+    # ── MAINTENANCE BUDGET (anggaran_maintenance, skema mentah) ─────────────────
+    budget = data.get("maintenance_budget", {})
+    if budget.get("sample_rows"):
+        parts.append(
+            "\n=== Anggaran Maintenance (tabel anggaran_maintenance, skema BELUM "
+            "diverifikasi — baca kualitatif, jangan hitung ulang tanpa yakin arti kolomnya) ===\n"
+            f"Kolom: {', '.join(budget['columns'])}"
+        )
+        for r in budget["sample_rows"][:20]:
+            parts.append(" | ".join(f"{k}: {r.get(k)}" for k in budget["columns"]))
+    else:
+        parts.append(
+            "\n=== Anggaran Maintenance ===\n"
+            "Data tidak tersedia (tabel anggaran_maintenance tidak ditemukan/kosong)."
+        )
+
+    # ── ASSET INTEGRITY EXTRA (proxy AIMS tambahan) ─────────────────────────────
+    aims_extra = data.get("asset_integrity_extra", {})
+
+    pipe = aims_extra.get("pipeline", {})
+    if pipe.get("summary_by_ru"):
+        parts.append("\n=== Pipeline Inspection — Piping/Corrosion per RU ===")
+        for r in pipe["summary_by_ru"]:
+            parts.append(
+                f"RU: {r.get('refinery_unit')} | Total: {r.get('total')} | "
+                f"Overdue: {r.get('overdue')} | Remaining Life < 2 thn: {r.get('low_rem_life')} | "
+                f"Ada Temporary Repair Aktif: {r.get('active_temp_repair')}"
+            )
+        if pipe.get("hotspot"):
+            parts.append("--- Pipeline Hotspot (Low Remaining Life / Temporary Repair) ---")
+            for r in pipe["hotspot"][:10]:
+                parts.append(
+                    f"RU: {r.get('refinery_unit')} | Area: {r.get('area')} | Unit: {r.get('unit')} | "
+                    f"Service: {r.get('fluida_service')} | Rem Life: {r.get('rem_life_years')} thn | "
+                    f"Temporary Repair: {r.get('jumlah_temporary_repair')}"
+                )
+
+    atg = aims_extra.get("atg", {})
+    if atg.get("summary_by_ru"):
+        parts.append("\n=== ATG Monitoring — Sertifikasi Tangki per RU ===")
+        for r in atg["summary_by_ru"]:
+            parts.append(f"RU: {r.get('refinery_unit')} | Total: {r.get('total')} | Expired: {r.get('expired')}")
+
+    metering = aims_extra.get("metering", {})
+    if metering.get("summary_by_ru"):
+        parts.append("\n=== Metering Monitoring — Sertifikasi per RU ===")
+        for r in metering["summary_by_ru"]:
+            parts.append(f"RU: {r.get('refinery_unit')} | Total: {r.get('total')} | Expired: {r.get('expired')}")
+
+    zc = aims_extra.get("zero_clamp", {})
+    if zc.get("summary_by_ru"):
+        parts.append("\n=== Zero Clamp — Temporary Repair Aktif per RU (exposure signal) ===")
+        for r in zc["summary_by_ru"]:
+            parts.append(f"RU: {r.get('ru')} | Total: {r.get('total')} | Aktif (belum permanen): {r.get('active')}")
+        if zc.get("active_list"):
+            parts.append("--- Zero Clamp Aktif (Top 15) ---")
+            for r in zc["active_list"]:
+                parts.append(
+                    f"RU: {r.get('ru')} | Area: {r.get('area')} | Unit: {r.get('unit')} | "
+                    f"Jenis Kerusakan: {r.get('type_damage')} | Dipasang: {r.get('tanggal_dipasang')} | "
+                    f"Status: {r.get('status')}"
+                )
+
+    readiness = aims_extra.get("readiness", {})
+    if readiness:
+        parts.append(
+            "\n=== Readiness Tank/Jetty/SPM per RU (jumlah item — konvensi status_* "
+            "BELUM diverifikasi, hanya untuk kelengkapan konteks, JANGAN simpulkan pass/fail) ==="
+        )
+        for label, rows in readiness.items():
+            for r in rows:
+                parts.append(f"{label.title()} | RU: {r.get('refinery_unit')} | Total Item: {r.get('total')}")
+
+    if not aims_extra:
+        parts.append(
+            "\n=== Asset Integrity Extra (Pipeline/ATG/Metering/Zero Clamp/Readiness) ===\n"
+            "Data tidak tersedia (tabel-tabel tersebut tidak ditemukan)."
         )
 
     # ── LAPORAN BULANAN ───────────────────────────────────────────────────────

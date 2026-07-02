@@ -77,6 +77,7 @@ def get_reliability_data() -> dict:
         "critical_equipment": _get_critical_equipment(),
         "inspection_overdue": _get_inspection_overdue(),
         "sap":                _get_sap_data(),
+        "maintenance_spend":  _get_maintenance_spend(),
         "laporan_bulanan":    _get_laporan_bulanan(),
     }
 
@@ -232,9 +233,34 @@ def _get_boc() -> dict:
         """)
         summary = cur.fetchall()
 
+        # Operational Availability — kolom bersifat opsional (tidak dikonfirmasi
+        # ada di skema `boc`). Introspeksi dulu supaya tidak mematahkan query
+        # bila kolomnya tidak ada.
+        oa_by_ru = []
+        try:
+            cols = _table_columns(cur, "boc")
+            oa_col = next(
+                (c for c in ("oa", "operational_availability", "availability")
+                 if c in cols),
+                None,
+            )
+            if oa_col:
+                cur.execute(f"""
+                    SELECT ru,
+                           ROUND(COALESCE(AVG({oa_col}), 0)::numeric, 2) AS avg_oa
+                    FROM boc
+                    WHERE {oa_col} IS NOT NULL
+                    GROUP BY ru
+                    ORDER BY avg_oa ASC
+                """)
+                oa_by_ru = cur.fetchall()
+        except Exception:
+            oa_by_ru = []
+
         return {
             "low_mtbf_equipment": [dict(r) for r in low_mtbf],
             "summary_by_ru":      [dict(r) for r in summary],
+            "oa_by_ru":           [dict(r) for r in oa_by_ru],
         }
 
 
@@ -578,7 +604,77 @@ def _get_sap_data() -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 11. LAPORAN BULANAN
+# 11. MAINTENANCE SPEND — Actual cost dari SAP Work Order
+# Skema sap_work_orders dikelola di luar repo ini (tabel eksternal), jadi kolom
+# act_cost / ru bersifat opsional. Introspeksi information_schema dulu supaya
+# kolom yang tidak ada tidak mematahkan get_reliability_data() secara keseluruhan.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _table_columns(cur, table: str) -> set:
+    cur.execute(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = %s",
+        (table,),
+    )
+    return {r["column_name"] for r in cur.fetchall()}
+
+
+def _get_maintenance_spend() -> dict:
+    try:
+        with _cursor() as cur:
+            cols = _table_columns(cur, "sap_work_orders")
+            if "act_cost" not in cols:
+                return {}
+
+            ru_col = "ru" if "ru" in cols else ("refinery_unit" if "refinery_unit" in cols else None)
+
+            cur.execute("""
+                SELECT order_type,
+                       COUNT(*) AS wo_count,
+                       ROUND(COALESCE(SUM(act_cost), 0)::numeric, 2) AS total_cost
+                FROM sap_work_orders
+                WHERE act_cost IS NOT NULL
+                GROUP BY order_type
+                ORDER BY total_cost DESC
+            """)
+            by_type = cur.fetchall()
+
+            cur.execute("""
+                SELECT equipment,
+                       ROUND(COALESCE(SUM(act_cost), 0)::numeric, 2) AS total_cost,
+                       COUNT(*) AS wo_count
+                FROM sap_work_orders
+                WHERE act_cost IS NOT NULL
+                  AND equipment IS NOT NULL AND equipment != ''
+                GROUP BY equipment
+                ORDER BY total_cost DESC
+                LIMIT 10
+            """)
+            top_equipment = cur.fetchall()
+
+            by_ru = []
+            if ru_col:
+                cur.execute(f"""
+                    SELECT {ru_col} AS ru,
+                           ROUND(COALESCE(SUM(act_cost), 0)::numeric, 2) AS total_cost,
+                           COUNT(*) AS wo_count
+                    FROM sap_work_orders
+                    WHERE act_cost IS NOT NULL
+                    GROUP BY {ru_col}
+                    ORDER BY total_cost DESC
+                """)
+                by_ru = cur.fetchall()
+
+            return {
+                "by_order_type": [dict(r) for r in by_type],
+                "top_equipment": [dict(r) for r in top_equipment],
+                "by_ru":         [dict(r) for r in by_ru],
+            }
+    except Exception:
+        return {}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 12. LAPORAN BULANAN
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _get_laporan_bulanan() -> dict:

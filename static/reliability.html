@@ -171,6 +171,10 @@
     border-bottom: 2px solid var(--teal-100);
   }
   .output-body h2:first-child { margin-top: 0; }
+  .output-body h3 {
+    font-size: 12.5px; font-weight: 700; color: var(--slate-700);
+    margin: 12px 0 4px;
+  }
   .output-body strong { color: var(--slate-800); }
   .output-body p { margin-bottom: 4px; }
   .output-body ul, .output-body ol { padding-left: 18px; margin: 4px 0 6px; }
@@ -429,6 +433,10 @@
             <span class="data-chip-icon">🔍</span>
             <div><div class="data-chip-name">RCPS</div><div class="data-chip-desc">Root cause & progress penyelesaian</div></div>
           </div>
+          <div class="data-chip lagging">
+            <span class="data-chip-icon">💵</span>
+            <div><div class="data-chip-name">Maintenance Spend</div><div class="data-chip-desc">Actual cost SAP WO per type/RU/equipment (bila tersedia)</div></div>
+          </div>
 
           <div class="info-section-subtitle" style="color:var(--teal-700);margin-top:12px">Leading Indicator</div>
           <div class="data-chip leading">
@@ -463,27 +471,51 @@
 
           <div class="output-chip">
             <div class="output-num">1</div>
-            <div><div class="output-chip-name">Reliability Performance Overview</div><div class="output-chip-desc">Status keseluruhan — membaik, stagnan, atau memburuk</div></div>
+            <div><div class="output-chip-name">Executive Reliability Health Summary</div><div class="output-chip-desc">Status kesehatan nasional — Green/Yellow/Orange/Red</div></div>
           </div>
           <div class="output-chip">
             <div class="output-num">2</div>
-            <div><div class="output-chip-name">Trend Direction</div><div class="output-chip-desc">Arah tren PAF, failure frequency, dan backlog WO</div></div>
+            <div><div class="output-chip-name">National Performance Overview</div><div class="output-chip-desc">PAF, OA, MTBF/MTTR, PM compliance, backlog, spend, hotspot nasional</div></div>
           </div>
           <div class="output-chip">
             <div class="output-num">3</div>
-            <div><div class="output-chip-name">Leading Indicator Concern</div><div class="output-chip-desc">Sinyal dini yang perlu diwaspadai sebelum failure terjadi</div></div>
+            <div><div class="output-chip-name">RU Performance Review</div><div class="output-chip-desc">Analisis terpisah untuk 6 RU: Dumai, Plaju, Cilacap, Balikpapan, Balongan, Kasim</div></div>
           </div>
           <div class="output-chip">
             <div class="output-num">4</div>
-            <div><div class="output-chip-name">Lagging Indicator Status</div><div class="output-chip-desc">KPI hasil aktual vs target dengan angka konkret</div></div>
+            <div><div class="output-chip-name">Trend Direction</div><div class="output-chip-desc">Improving / stable / stagnant / deteriorating / insufficient data</div></div>
           </div>
           <div class="output-chip">
             <div class="output-num">5</div>
-            <div><div class="output-chip-name">Risk Hotspots</div><div class="output-chip-desc">RU / equipment dengan konsentrasi risiko tertinggi</div></div>
+            <div><div class="output-chip-name">Leading Indicator Concern</div><div class="output-chip-desc">Sinyal dini yang perlu diwaspadai sebelum failure terjadi</div></div>
           </div>
           <div class="output-chip">
             <div class="output-num">6</div>
-            <div><div class="output-chip-name">Management Implication</div><div class="output-chip-desc">Tindakan konkret yang dibutuhkan manajemen</div></div>
+            <div><div class="output-chip-name">Lagging Indicator Concern</div><div class="output-chip-desc">KPI hasil aktual: PAF, downtime, MTBF/MTTR, failure frequency</div></div>
+          </div>
+          <div class="output-chip">
+            <div class="output-num">7</div>
+            <div><div class="output-chip-name">Maintenance Spend Effectiveness</div><div class="output-chip-desc">Actual cost vs risk priority, backlog, dan repeated failure</div></div>
+          </div>
+          <div class="output-chip">
+            <div class="output-num">8</div>
+            <div><div class="output-chip-name">Asset Integrity Management Review</div><div class="output-chip-desc">Proxy AIMS dari ICU + inspection overdue</div></div>
+          </div>
+          <div class="output-chip">
+            <div class="output-num">9</div>
+            <div><div class="output-chip-name">Risk Hotspots</div><div class="output-chip-desc">RU / unit / equipment dengan konsentrasi risiko tertinggi</div></div>
+          </div>
+          <div class="output-chip">
+            <div class="output-num">10</div>
+            <div><div class="output-chip-name">KPI vs Field Signal Mismatch</div><div class="output-chip-desc">Gap antara angka resmi dan sinyal operasional</div></div>
+          </div>
+          <div class="output-chip">
+            <div class="output-num">11</div>
+            <div><div class="output-chip-name">Management Implication</div><div class="output-chip-desc">Tindakan konkret dengan owner dan timeframe</div></div>
+          </div>
+          <div class="output-chip">
+            <div class="output-num">12</div>
+            <div><div class="output-chip-name">Data Quality and Limitation</div><div class="output-chip-desc">Keterbatasan data: OA, AIMS KeyPI, budget, dan cakupan RU</div></div>
           </div>
 
           <div class="info-section-title" style="margin-top:16px">🔄 Mode Run</div>
@@ -615,7 +647,8 @@
     let s = text
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-    // Heading ## 
+    // Heading ### (RU subsection) dulu, baru ## (section utama)
+    s = s.replace(/^### (.+)$/gm, '<h3>$1</h3>');
     s = s.replace(/^## (.+)$/gm, '<h2>$1</h2>');
 
     // Bold
@@ -642,9 +675,9 @@
     s = s.replace(/\n/g, ' ');
     s = '<p>' + s + '</p>';
 
-    // Bersihkan p kosong dan p yang wrap ul/ol/h2
-    s = s.replace(/<p>(<h2>|<ul>|<ol>)/g, '$1');
-    s = s.replace(/(<\/h2>|<\/ul>|<\/ol>)<\/p>/g, '$1');
+    // Bersihkan p kosong dan p yang wrap ul/ol/h2/h3
+    s = s.replace(/<p>(<h2>|<h3>|<ul>|<ol>)/g, '$1');
+    s = s.replace(/(<\/h2>|<\/h3>|<\/ul>|<\/ol>)<\/p>/g, '$1');
     s = s.replace(/<p>\s*<\/p>/g, '');
 
     return s;

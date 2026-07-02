@@ -54,9 +54,20 @@ berdasarkan KPI, trend, leading-lagging indicator, dan risk hotspot.
 
 ## Sumber Data
 
-Agent membaca dari 12 sumber data:
+Agent membaca dari 13 sumber data:
 - PAF, Issue PAF, Bad Actor, ICU, BOC (MTBF/MTTR)
 - RCPS, RCPS Rekomendasi, IRKAP Program & Actual
 - Critical Equipment, Inspection Plan
 - SAP Notifications & Work Orders
+- Maintenance Spend — actual cost dari `sap_work_orders.act_cost` (bila kolomnya ada di DB;
+  diintrospeksi otomatis via `information_schema`, tidak wajib)
 - Laporan Bulanan (upload manual)
+
+**Keterbatasan data saat ini** (dinyatakan eksplisit oleh agent di section "Data Quality and
+Limitation" pada setiap output):
+- **Operational Availability (OA)** tidak tersedia sebagai metric terpisah dari PAF, kecuali
+  tabel `boc` punya kolom `oa` / `operational_availability` / `availability` (dicek otomatis).
+- **AIMS KeyPI resmi** (RBI/PSV/tank/piping/SCE-SECE) belum ada sumber datanya — agent memakai
+  ICU + Inspection Plan overdue sebagai proxy asset integrity.
+- **Budget/anggaran maintenance** belum ada sumber datanya, sehingga Maintenance Spend hanya
+  membahas actual cost tanpa perbandingan ke budget.

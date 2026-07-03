@@ -10,7 +10,7 @@ from flask import Blueprint, request, jsonify, send_from_directory
 
 from docx import Document
 from reliability_agent import run_reliability_agent
-from reliability_data import save_laporan_bulanan, ensure_reliability_schema
+from reliability_data import save_laporan_bulanan, ensure_reliability_schema, get_source_rows
 from db import (
     save_reliability_output,
     fetch_reliability_outputs,
@@ -172,6 +172,25 @@ def get_history_detail(output_id):
         if not row:
             return jsonify({"error": "Output tidak ditemukan"}), 404
         return jsonify({"success": True, "data": dict(row)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@reliability_bp.route("/reliability/source-data/<source_key>", methods=["GET"])
+def get_source_data(source_key):
+    """Kembalikan baris data mentah untuk modal 'Lihat Sumber Data'."""
+    try:
+        rows, columns, title = get_source_rows(source_key)
+        return jsonify({
+            "success": True,
+            "key":     source_key,
+            "title":   title,
+            "columns": columns,
+            "rows":    rows,
+            "count":   len(rows),
+        })
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

@@ -604,6 +604,258 @@ def _get_laporan_bulanan() -> dict:
         return {}
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# SOURCE DATA — untuk modal "Lihat Sumber Data" di frontend
+# ─────────────────────────────────────────────────────────────────────────────
+
+def get_source_rows(key: str) -> tuple:
+    """Return (rows: list[dict], columns: list[str], title: str)."""
+    _SOURCES = {
+        "paf":          _src_paf,
+        "issue_paf":    _src_issue_paf,
+        "bad_actor":    _src_bad_actor,
+        "icu":          _src_icu,
+        "boc":          _src_boc,
+        "rcps":         _src_rcps,
+        "irkap":        _src_irkap,
+        "critical_eqp": _src_critical_eqp,
+        "inspection":   _src_inspection,
+        "sap_wo":       _src_sap_wo,
+        "sap_notif":    _src_sap_notif,
+    }
+    if key not in _SOURCES:
+        raise ValueError(f"Source key '{key}' tidak dikenal.")
+    return _SOURCES[key]()
+
+
+def _src_paf():
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT ru, type, target_realisasi,
+                   ROUND(COALESCE(value, 0)::numeric, 2) AS value,
+                   ROUND(COALESCE(target, 0)::numeric, 2) AS target,
+                   plan_unplan, month_update
+            FROM paf
+            WHERE code_current = 1
+            ORDER BY ru, type, target_realisasi
+        """)
+        rows = [dict(r) for r in cur.fetchall()]
+    cols = ["ru", "type", "target_realisasi", "value", "target", "plan_unplan", "month_update"]
+    return rows, cols, "PAF — Plant Availability Factor (Periode Aktif)"
+
+
+def _src_issue_paf():
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT ru, type, date, issue, month_update
+            FROM issue_paf
+            WHERE code_current = 1
+            ORDER BY ru, date DESC
+        """)
+        rows = [dict(r) for r in cur.fetchall()]
+    cols = ["ru", "type", "date", "issue", "month_update"]
+    return rows, cols, "Issue PAF — Penyebab Kehilangan Availability"
+
+
+def _src_bad_actor():
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT ru, tag_number, status, problem,
+                   action_plan, category_action_plan,
+                   progress, target_date, periode
+            FROM bad_actor_monitoring
+            ORDER BY ru,
+                     CASE WHEN status ILIKE '%open%' OR status ILIKE '%progress%' THEN 1 ELSE 2 END,
+                     periode DESC NULLS LAST
+            LIMIT 100
+        """)
+        rows = [dict(r) for r in cur.fetchall()]
+    cols = ["ru", "tag_number", "status", "problem", "action_plan",
+            "category_action_plan", "progress", "target_date", "periode"]
+    return rows, cols, "Bad Actor Monitoring — Equipment dengan Failure Berulang"
+
+
+def _src_icu():
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT ru, tag_no, icu_status, issue,
+                   mitigation, mitigasi_category,
+                   permanent_solution, progress,
+                   target_closed, report_date
+            FROM icu_monitoring
+            WHERE icu_status NOT ILIKE '%close%'
+            ORDER BY ru, report_date DESC NULLS LAST
+            LIMIT 100
+        """)
+        rows = [dict(r) for r in cur.fetchall()]
+    cols = ["ru", "tag_no", "icu_status", "issue", "mitigation",
+            "mitigasi_category", "progress", "target_closed", "report_date"]
+    return rows, cols, "ICU Monitoring — Integrity Concern Unit (Open)"
+
+
+def _src_boc():
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT ru, equipment, grup_equipment, status, frequency,
+                   running_hours,
+                   ROUND(COALESCE(mttr, 0)::numeric, 2) AS mttr,
+                   ROUND(COALESCE(mtbf, 0)::numeric, 2) AS mtbf,
+                   hasil
+            FROM boc
+            WHERE mtbf IS NOT NULL
+            ORDER BY mtbf ASC
+            LIMIT 100
+        """)
+        rows = [dict(r) for r in cur.fetchall()]
+    cols = ["ru", "equipment", "grup_equipment", "status",
+            "frequency", "running_hours", "mttr", "mtbf", "hasil"]
+    return rows, cols, "BOC — MTBF & MTTR Equipment (Diurutkan MTBF Terendah)"
+
+
+def _src_rcps():
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT kilang, rcps_no, judul_rcps, disiplin,
+                   criticallity, traffic,
+                   ROUND(COALESCE(sum_of_progress, 0)::numeric, 1) AS sum_of_progress,
+                   date
+            FROM rcps
+            ORDER BY kilang,
+                     CASE traffic WHEN 'Red' THEN 1 WHEN 'Yellow' THEN 2 WHEN 'Green' THEN 3 ELSE 4 END,
+                     date DESC
+            LIMIT 100
+        """)
+        rows = [dict(r) for r in cur.fetchall()]
+    cols = ["kilang", "rcps_no", "judul_rcps", "disiplin",
+            "criticallity", "traffic", "sum_of_progress", "date"]
+    return rows, cols, "RCPS — Root Cause Problem Solving"
+
+
+def _src_irkap():
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT refinery_unit, no_program_kerja, program_kerja,
+                   equipment_tag_no, status_step, status_prognosa,
+                   top_risk, asset_integrity, finish_plan
+            FROM irkap_program
+            ORDER BY refinery_unit,
+                     CASE status_prognosa
+                       WHEN 'Delay'      THEN 1
+                       WHEN 'Carry Over' THEN 2
+                       ELSE 3 END,
+                     finish_plan ASC NULLS LAST
+            LIMIT 100
+        """)
+        rows = [dict(r) for r in cur.fetchall()]
+    cols = ["refinery_unit", "no_program_kerja", "program_kerja",
+            "equipment_tag_no", "status_step", "status_prognosa", "top_risk", "finish_plan"]
+    return rows, cols, "IRKAP — Program Kerja (Diurutkan Status Delay)"
+
+
+def _src_critical_eqp():
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT refinery_unit, unit_proses, equipment,
+                   highlight_issue, corrective_action,
+                   target_corrective, traffic_corrective,
+                   mitigasi_action, target_mitigasi,
+                   traffic_mitigasi, month_update
+            FROM critical_eqp_prim_sec
+            WHERE highlight_issue IS NOT NULL AND highlight_issue != ''
+            ORDER BY refinery_unit,
+                     CASE UPPER(traffic_corrective)
+                       WHEN 'RED' THEN 1 WHEN 'YELLOW' THEN 2 WHEN 'GREEN' THEN 3 ELSE 4 END
+            LIMIT 80
+        """)
+        prim = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("""
+            SELECT refinery_unit,
+                   type_equipment AS unit_proses,
+                   NULL            AS equipment,
+                   highlight_issue, corrective_action,
+                   target_corrective, traffic_corrective,
+                   mitigasi_action,
+                   NULL            AS target_mitigasi,
+                   traffic_mitigasi, month_update
+            FROM critical_eqp_utl
+            WHERE highlight_issue IS NOT NULL AND highlight_issue != ''
+            ORDER BY refinery_unit,
+                     CASE UPPER(traffic_corrective)
+                       WHEN 'RED' THEN 1 WHEN 'YELLOW' THEN 2 WHEN 'GREEN' THEN 3 ELSE 4 END
+            LIMIT 40
+        """)
+        utl = [dict(r) for r in cur.fetchall()]
+
+    rows = prim + utl
+    cols = ["refinery_unit", "unit_proses", "equipment", "highlight_issue",
+            "corrective_action", "target_corrective", "traffic_corrective", "month_update"]
+    return rows, cols, "Critical Equipment — Primary/Secondary & UTL dengan Issue"
+
+
+def _src_inspection():
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT refinery_unit, area, unit, tag_no_ln,
+                   type_equipment, type_inspection,
+                   due_date, plan_date, actual_date,
+                   result_remaining_life, grand_result
+            FROM inspection_plan
+            WHERE actual_date IS NULL
+              AND due_date IS NOT NULL AND due_date != ''
+              AND due_date ~ '^\d{4}-\d{2}-\d{2}$'
+              AND to_date(due_date, 'YYYY-MM-DD') < CURRENT_DATE
+            ORDER BY refinery_unit, due_date ASC
+            LIMIT 100
+        """)
+        rows = [dict(r) for r in cur.fetchall()]
+    cols = ["refinery_unit", "area", "unit", "tag_no_ln", "type_equipment",
+            "type_inspection", "due_date", "plan_date", "result_remaining_life", "grand_result"]
+    return rows, cols, "Inspection Plan — Overdue (Belum Ada Realisasi)"
+
+
+def _src_sap_wo():
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT order_no, order_type, system_status,
+                   basic_fin_date, description,
+                   equipment, criticality, location, main_workctr
+            FROM sap_work_orders
+            WHERE (
+                (system_status ILIKE '%REL%' AND actual_finish IS NULL
+                 AND basic_fin_date < CURRENT_DATE)
+                OR
+                (basic_fin_date < CURRENT_DATE
+                 AND system_status NOT ILIKE '%TECO%'
+                 AND system_status NOT ILIKE '%CLSD%')
+            )
+            ORDER BY basic_fin_date ASC
+            LIMIT 100
+        """)
+        rows = [dict(r) for r in cur.fetchall()]
+    cols = ["order_no", "order_type", "system_status", "basic_fin_date",
+            "description", "equipment", "criticality", "location"]
+    return rows, cols, "SAP Work Orders — Stagnant & Overdue"
+
+
+def _src_sap_notif():
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT notif_type, notification, description,
+                   equipment, functional_loc, location,
+                   criticality, required_end, system_status
+            FROM sap_notifications
+            WHERE (order_no IS NULL OR order_no = '')
+              AND UPPER(criticality) IN ('1', '2', 'H', 'VH', 'HIGH', 'VERY HIGH')
+            ORDER BY required_end ASC NULLS LAST
+            LIMIT 100
+        """)
+        rows = [dict(r) for r in cur.fetchall()]
+    cols = ["notif_type", "notification", "description", "equipment",
+            "functional_loc", "location", "criticality", "required_end"]
+    return rows, cols, "SAP Notifications — Critical Backlog (Belum Ada WO)"
+
+
 def save_laporan_bulanan(title: str, content: str) -> int:
     """Simpan laporan bulanan — wrapper ke db.save_report."""
     """Simpan teks laporan bulanan ke tabel reports."""

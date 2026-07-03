@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reliability Performance & Risk Agent</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -436,6 +437,59 @@
     transition: background .15s; line-height: 1.5; white-space: nowrap;
   }
   .src-btn:hover { background: var(--teal-700); }
+
+  /* ── OUTPUT TABS ─────────────────────────────────────────────── */
+  .output-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--slate-200); margin-bottom: 14px; }
+  .output-tab {
+    padding: 7px 18px; border: none; background: transparent; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: var(--slate-400);
+    border-bottom: 2px solid transparent; margin-bottom: -2px;
+    transition: color .15s, border-color .15s; font-family: inherit;
+  }
+  .output-tab.active { color: var(--teal-600); border-bottom-color: var(--teal-500); }
+  .output-tab:hover:not(.active) { color: var(--slate-600); }
+
+  .output-body.hide  { display: none; }
+  .dashboard-body    { display: none; }
+  .dashboard-body.show { display: block; }
+
+  /* ── DASHBOARD KPI CARDS ──────────────────────────────────────── */
+  .kpi-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px; margin-bottom: 16px;
+  }
+  .kpi-card {
+    background: var(--slate-50); border: 1px solid var(--slate-200);
+    border-radius: 10px; padding: 12px 14px;
+  }
+  .kpi-card.red    { background: var(--red-50);   border-color: var(--red-100);   }
+  .kpi-card.amber  { background: var(--amber-50); border-color: var(--amber-200); }
+  .kpi-card.green  { background: var(--green-50); border-color: var(--green-100); }
+  .kpi-value { font-size: 26px; font-weight: 800; color: var(--slate-800); line-height: 1; }
+  .kpi-value.red   { color: #dc2626; }
+  .kpi-value.amber { color: #d97706; }
+  .kpi-value.green { color: #16a34a; }
+  .kpi-label { font-size: 10px; color: var(--slate-500); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-top: 4px; }
+  .kpi-sub   { font-size: 10px; color: var(--slate-400); margin-top: 2px; }
+
+  /* ── DASHBOARD CHART GRID ─────────────────────────────────────── */
+  .chart-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 700px) { .chart-grid { grid-template-columns: 1fr; } }
+  .chart-card {
+    background: var(--slate-50); border: 1px solid var(--slate-200);
+    border-radius: 10px; padding: 14px;
+  }
+  .chart-title {
+    font-size: 11px; font-weight: 700; color: var(--slate-500);
+    text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px;
+  }
+  .chart-wrap { position: relative; height: 200px; }
+
+  .dashboard-loading { padding: 32px 0; text-align: center; color: var(--slate-400); font-size: 13px; }
+  .dashboard-empty   { padding: 48px 16px; text-align: center; color: var(--slate-300); font-size: 14px; font-style: italic; }
 </style>
 </head>
 <body>
@@ -498,7 +552,10 @@
     <!-- ── KANAN: OUTPUT ──────────────────────────────────────── -->
     <div class="card">
       <div class="output-header">
-        <div class="card-label" style="margin:0">📋 Hasil Analisis</div>
+        <div class="output-tabs">
+          <button class="output-tab active" id="tabAnalisis" onclick="switchOutputTab('analisis')">📋 Analisis</button>
+          <button class="output-tab" id="tabDashboard" onclick="switchOutputTab('dashboard')">📊 Dashboard</button>
+        </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="badge" id="outputBadge"></span>
           <span class="output-meta" id="outputTitle"></span>
@@ -506,6 +563,9 @@
       </div>
       <div class="output-body empty" id="outputBody">
         Jalankan agent untuk melihat hasil analisis.
+      </div>
+      <div class="dashboard-body" id="dashboardBody">
+        <div class="dashboard-empty">📊 Jalankan agent terlebih dahulu, lalu klik tab Dashboard untuk melihat visualisasi data.</div>
       </div>
     </div>
   </div>
@@ -733,6 +793,7 @@
         badge.textContent = activeMode === 'weekly' ? 'Weekly' : 'Monthly';
         title.textContent = data.title;
         document.getElementById('lastRun').textContent = `Terakhir: ${new Date().toLocaleString('id-ID')}`;
+        refreshDashboard();
         loadHistory(activeFilter);
       } else {
         output.innerHTML = `<span style="color:var(--red-600)">❌ ${esc(data.error)}</span>`;
@@ -1013,6 +1074,7 @@
         badge.className   = `badge ${isM?'monthly':'weekly'}`;
         badge.textContent = isM ? 'Monthly' : 'Weekly';
         title.textContent = item.title || '';
+        refreshDashboard();
         window.scrollTo({top:0, behavior:'smooth'});
       } else {
         output.innerHTML=`<span style="color:var(--red-600)">❌ ${esc(data.error)}</span>`;
@@ -1022,6 +1084,199 @@
 
   function esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Output Tab Switching ─────────────────────────────────────────────────
+  let activeOutputTab = 'analisis';
+
+  function switchOutputTab(tab) {
+    activeOutputTab = tab;
+    document.getElementById('tabAnalisis').classList.toggle('active', tab === 'analisis');
+    document.getElementById('tabDashboard').classList.toggle('active', tab === 'dashboard');
+    const outputBody = document.getElementById('outputBody');
+    const dashBody   = document.getElementById('dashboardBody');
+    if (tab === 'analisis') {
+      outputBody.classList.remove('hide');
+      dashBody.classList.remove('show');
+    } else {
+      outputBody.classList.add('hide');
+      dashBody.classList.add('show');
+      loadDashboard();
+    }
+  }
+
+  // ── Dashboard ────────────────────────────────────────────────────────────
+  let _dashLoaded = false;
+  let _dashCharts = {};
+
+  function refreshDashboard() {
+    _dashLoaded = false;
+    Object.values(_dashCharts).forEach(c => { try { c.destroy(); } catch(_) {} });
+    _dashCharts = {};
+    if (activeOutputTab === 'dashboard') loadDashboard();
+  }
+
+  async function loadDashboard() {
+    if (_dashLoaded) return;
+    const body = document.getElementById('dashboardBody');
+    body.innerHTML = '<div class="dashboard-loading">⏳ Memuat data dashboard...</div>';
+    try {
+      const res  = await fetch('/reliability/dashboard-data');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Gagal memuat data');
+      renderDashboard(data.data);
+      _dashLoaded = true;
+    } catch(e) {
+      body.innerHTML = `<div class="dashboard-empty">❌ ${esc(e.message)}</div>`;
+    }
+  }
+
+  function renderDashboard(d) {
+    const kpi = d.kpi || {};
+    const pmPct  = +(kpi.pm_compliance_pct || 0);
+    const pmCls  = pmPct >= 90 ? 'green' : pmPct >= 75 ? 'amber' : 'red';
+    const icuCls = kpi.icu_open     > 0 ? 'amber' : 'green';
+    const baCls  = kpi.bad_actor_open > 0 ? 'amber' : 'green';
+    const insCls = kpi.inspection_overdue > 0 ? 'red' : 'green';
+    const rcpsCls= kpi.rcps_red     > 0 ? 'red' : 'green';
+    const woCls  = kpi.stagnant_wo  > 0 ? 'amber' : 'green';
+
+    document.getElementById('dashboardBody').innerHTML = `
+      <div class="kpi-grid">
+        <div class="kpi-card ${icuCls}">
+          <div class="kpi-value ${icuCls}">${kpi.icu_open ?? '—'}</div>
+          <div class="kpi-label">ICU Open</div>
+          <div class="kpi-sub">Integrity Concern Unit</div>
+        </div>
+        <div class="kpi-card ${baCls}">
+          <div class="kpi-value ${baCls}">${kpi.bad_actor_open ?? '—'}</div>
+          <div class="kpi-label">Bad Actor Open</div>
+          <div class="kpi-sub">Equipment bermasalah</div>
+        </div>
+        <div class="kpi-card ${insCls}">
+          <div class="kpi-value ${insCls}">${kpi.inspection_overdue ?? '—'}</div>
+          <div class="kpi-label">Inspeksi Overdue</div>
+          <div class="kpi-sub">Belum ada realisasi</div>
+        </div>
+        <div class="kpi-card ${pmCls}">
+          <div class="kpi-value ${pmCls}">${pmPct}%</div>
+          <div class="kpi-label">PM Compliance</div>
+          <div class="kpi-sub">Preventive Maintenance</div>
+        </div>
+        <div class="kpi-card ${rcpsCls}">
+          <div class="kpi-value ${rcpsCls}">${kpi.rcps_red ?? '—'}</div>
+          <div class="kpi-label">RCPS Red</div>
+          <div class="kpi-sub">Root cause belum selesai</div>
+        </div>
+        <div class="kpi-card ${woCls}">
+          <div class="kpi-value ${woCls}">${kpi.stagnant_wo ?? '—'}</div>
+          <div class="kpi-label">WO Stagnant</div>
+          <div class="kpi-sub">Work Order overdue</div>
+        </div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title">📊 PAF per Refinery Unit</div>
+          <div class="chart-wrap"><canvas id="chPaf"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">⚠️ ICU Open per RU</div>
+          <div class="chart-wrap"><canvas id="chIcu"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">🔴 RCPS Traffic Distribution</div>
+          <div class="chart-wrap"><canvas id="chRcps"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">📅 IRKAP Status per RU</div>
+          <div class="chart-wrap"><canvas id="chIrkap"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">🔧 Bad Actor Status</div>
+          <div class="chart-wrap"><canvas id="chBa"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">⏱️ Avg MTBF per RU (jam)</div>
+          <div class="chart-wrap"><canvas id="chMtbf"></canvas></div>
+        </div>
+      </div>`;
+
+    const legendOpts = { position: 'bottom', labels: { font: { size: 11 }, padding: 10 } };
+    const def = { responsive: true, maintainAspectRatio: false };
+
+    // PAF bar
+    const paf = d.paf_per_ru || [];
+    _dashCharts.paf = new Chart(document.getElementById('chPaf'), {
+      type: 'bar',
+      data: {
+        labels: paf.map(r => r.ru || '?'),
+        datasets: [
+          { label: 'Realisasi (%)', data: paf.map(r => r.realisasi), backgroundColor: 'rgba(20,184,166,.75)', borderRadius: 4 },
+          { label: 'Target (%)',    data: paf.map(r => r.target),    backgroundColor: 'rgba(148,163,184,.4)', borderRadius: 4 },
+        ],
+      },
+      options: { ...def, plugins: { legend: legendOpts }, scales: { y: { beginAtZero: false, ticks: { callback: v => v+'%' } } } },
+    });
+
+    // ICU bar
+    const icu = d.icu_per_ru || [];
+    _dashCharts.icu = new Chart(document.getElementById('chIcu'), {
+      type: 'bar',
+      data: {
+        labels: icu.map(r => r.ru || '?'),
+        datasets: [{ label: 'Open', data: icu.map(r => +(r.open_count||0)), backgroundColor: 'rgba(245,158,11,.75)', borderRadius: 4 }],
+      },
+      options: { ...def, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } },
+    });
+
+    // RCPS donut
+    const rcps = d.rcps_traffic || [];
+    const rcpsClr = rcps.map(r => {
+      const t = (r.traffic||'').toLowerCase();
+      return t==='red' ? 'rgba(220,38,38,.8)' : t==='yellow' ? 'rgba(245,158,11,.8)' : t==='green' ? 'rgba(22,163,74,.8)' : 'rgba(148,163,184,.6)';
+    });
+    _dashCharts.rcps = new Chart(document.getElementById('chRcps'), {
+      type: 'doughnut',
+      data: { labels: rcps.map(r => r.traffic||'—'), datasets: [{ data: rcps.map(r => r.count), backgroundColor: rcpsClr }] },
+      options: { ...def, plugins: { legend: legendOpts } },
+    });
+
+    // IRKAP stacked horizontal bar
+    const irkap = d.irkap_per_ru || [];
+    _dashCharts.irkap = new Chart(document.getElementById('chIrkap'), {
+      type: 'bar',
+      data: {
+        labels: irkap.map(r => r.ru || '?'),
+        datasets: [
+          { label: 'On Track',   data: irkap.map(r => +(r.on_track||0)),   backgroundColor: 'rgba(22,163,74,.75)',  borderRadius: 3 },
+          { label: 'Delay',      data: irkap.map(r => +(r.delay||0)),      backgroundColor: 'rgba(220,38,38,.75)',  borderRadius: 3 },
+          { label: 'Carry Over', data: irkap.map(r => +(r.carry_over||0)), backgroundColor: 'rgba(245,158,11,.75)', borderRadius: 3 },
+        ],
+      },
+      options: { ...def, indexAxis: 'y', plugins: { legend: legendOpts }, scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true } } },
+    });
+
+    // Bad Actor donut
+    const ba = d.bad_actor_summary || {};
+    _dashCharts.ba = new Chart(document.getElementById('chBa'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Open / In Progress', 'Closed / Done'],
+        datasets: [{ data: [+(ba.open_count||0), +(ba.closed_count||0)], backgroundColor: ['rgba(245,158,11,.8)', 'rgba(22,163,74,.8)'] }],
+      },
+      options: { ...def, plugins: { legend: legendOpts } },
+    });
+
+    // MTBF bar
+    const boc = d.boc_per_ru || [];
+    _dashCharts.mtbf = new Chart(document.getElementById('chMtbf'), {
+      type: 'bar',
+      data: {
+        labels: boc.map(r => r.ru || '?'),
+        datasets: [{ label: 'Avg MTBF', data: boc.map(r => +(r.avg_mtbf||0)), backgroundColor: 'rgba(99,102,241,.75)', borderRadius: 4 }],
+      },
+      options: { ...def, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+    });
   }
 
   loadHistory('');

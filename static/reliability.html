@@ -330,21 +330,16 @@
   .src-sheet {
     position: fixed; bottom: 0; left: 0; right: 0;
     background: #fff;
-    border-radius: 20px 20px 0 0;
-    max-height: 82vh;
+    border-radius: 0;
+    max-height: 85vh;
     z-index: 201;
     display: flex; flex-direction: column;
     transform: translateY(100%);
     transition: transform .32s cubic-bezier(.25,.8,.25,1);
-    box-shadow: 0 -8px 40px rgba(0,0,0,.2);
+    box-shadow: 0 -4px 32px rgba(0,0,0,.22);
+    border-top: 2px solid var(--teal-400);
   }
   .src-sheet.open { transform: translateY(0); }
-
-  .src-handle {
-    width: 38px; height: 4px;
-    background: var(--slate-200); border-radius: 2px;
-    margin: 10px auto 0; flex-shrink: 0;
-  }
 
   .src-sheet-header {
     padding: 12px 18px 12px;
@@ -656,7 +651,6 @@
 <!-- SOURCE DATA MODAL BOTTOM SHEET -->
 <div class="src-overlay" id="srcOverlay" onclick="closeSourceModal()"></div>
 <div class="src-sheet" id="srcSheet" role="dialog" aria-modal="true" aria-labelledby="srcTitle">
-  <div class="src-handle"></div>
   <div class="src-sheet-header">
     <span class="src-sheet-icon">🗄️</span>
     <div class="src-sheet-title" id="srcTitle">Data Sumber</div>
@@ -781,19 +775,48 @@
   };
 
   // Bungkus angka/% dan tag equipment dengan chip yang bisa diklik
+  // Mapping keyword → source key khusus untuk angka jumlah
+  const COUNT_KEYWORD_MAP = [
+    { re: /\b(\d{1,4})\s+(ICU)\b/gi,                              key: 'icu',       label: 'ICU' },
+    { re: /\b(\d{1,4})\s+(bad\s*actor)\b/gi,                      key: 'bad_actor', label: 'Bad Actor' },
+    { re: /\b(\d{1,4})\s+(RCPS)\b/gi,                             key: 'rcps',      label: 'RCPS' },
+    { re: /\b(\d{1,4})\s+(WO|work\s*order)\b/gi,                  key: 'sap_wo',    label: 'SAP WO' },
+    { re: /\b(\d{1,4})\s+(notifikasi|notif)\b/gi,                 key: 'sap_notif', label: 'SAP Notif' },
+    { re: /\b(\d{1,4})\s+(inspeksi|inspection|overdue)\b/gi,      key: 'inspection',label: 'Inspection' },
+    { re: /\b(\d{1,4})\s+(program|IRKAP)\b/gi,                    key: 'irkap',     label: 'IRKAP' },
+    { re: /\b(\d{1,4})\s+(issue|penyebab)\b/gi,                   key: 'issue_paf', label: 'Issue PAF' },
+    { re: /\b(\d{1,4})\s+(equipment|peralatan|kritis)\b/gi,       key: 'critical_eqp', label: 'Critical Eqp' },
+    { re: /\b(\d{1,4})\s+(failure|kegagalan|breakdown|BOC)\b/gi,  key: 'boc',       label: 'BOC / MTBF' },
+  ];
+
   function wrapIndicators(s, sectionNum) {
     const srcs = SECTION_SOURCES[sectionNum];
     if (!srcs || !srcs.length) return s;
     const pk = srcs[0].key;
     const pl = (srcs[0].label || '').replace(/"/g, '&quot;');
-    const chip = (m) =>
-      `<span class="indicator-chip" data-key="${pk}" data-label="${pl}" ` +
-      `onclick="openSourceModal(this.dataset.key,this.dataset.label)" ` +
-      `title="Lihat data sumber: ${pl}">${m}<sup>↗</sup></span>`;
-    // Persentase: 87.5%, 90%, 92,3%
-    s = s.replace(/\b(\d+(?:[.,]\d+)?\s*%)/g, chip);
-    // Tag equipment: P-1001A, E-2345, FCV-101B (1–4 huruf kapital + dash + 3–5 digit + 0–2 huruf)
-    s = s.replace(/\b([A-Z]{1,4}-\d{3,5}[A-Z]{0,2})\b/g, chip);
+
+    const makeChip = (m, key, label) => {
+      const k = key  || pk;
+      const l = (label || srcs[0].label || '').replace(/"/g, '&quot;');
+      return `<span class="indicator-chip" data-key="${k}" data-label="${l}" ` +
+             `onclick="openSourceModal(this.dataset.key,this.dataset.label)" ` +
+             `title="Lihat data: ${l}">${m}<sup>↗</sup></span>`;
+    };
+
+    // 1. Persentase: 87.5%, 90%, 92,3%
+    s = s.replace(/\b(\d+(?:[.,]\d+)?\s*%)/g, m => makeChip(m));
+
+    // 2. Tag equipment: P-1001A, E-2345, FCV-101B
+    s = s.replace(/\b([A-Z]{1,4}-\d{3,5}[A-Z]{0,2})\b/g, m => makeChip(m));
+
+    // 3. Angka jumlah dengan keyword spesifik → sumber data yang sesuai
+    for (const { re, key, label } of COUNT_KEYWORD_MAP) {
+      s = s.replace(re, m => makeChip(m, key, label));
+    }
+
+    // 4. Angka jumlah generik + kata "item" → sumber utama section
+    s = s.replace(/\b(\d{1,4})\s+(item)\b/gi, m => makeChip(m));
+
     return s;
   }
 

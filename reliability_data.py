@@ -10,6 +10,23 @@ from contextlib import contextmanager
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
+# Mapping kode plant SAP → nama RU
+_PLANT_TO_RU = {
+    "6201": "RU II Dumai",
+    "6202": "RU II Dumai",
+    "6301": "RU III Plaju",
+    "6401": "RU IV Cilacap",
+    "6501": "RU V Balikpapan",
+    "6601": "RU VI Balongan",
+    "6701": "RU VII Kasim",
+}
+
+
+def _plant_to_ru_name(plant_code) -> str:
+    if plant_code is None:
+        return None
+    return _PLANT_TO_RU.get(str(plant_code).strip(), str(plant_code))
+
 
 # ─── koneksi (tidak duplikasi dari db.py agar tidak circular import) ─────────
 def _get_conn():
@@ -529,6 +546,7 @@ def _get_sap_data() -> dict:
         cur.execute("""
             SELECT equipment,
                    location,
+                   maint_plant,
                    COUNT(*) AS notif_count,
                    STRING_AGG(DISTINCT notif_type, ', ') AS notif_types,
                    MAX(notif_date) AS latest_notif,
@@ -536,7 +554,7 @@ def _get_sap_data() -> dict:
             FROM sap_notifications
             WHERE equipment IS NOT NULL
               AND equipment != ''
-            GROUP BY equipment, location
+            GROUP BY equipment, location, maint_plant
             HAVING COUNT(*) > 2
             ORDER BY notif_count DESC
             LIMIT 20
@@ -547,6 +565,7 @@ def _get_sap_data() -> dict:
         cur.execute("""
             SELECT notif_type, notification, description,
                    equipment, functional_loc, location,
+                   maint_plant,
                    criticality, required_end, system_status
             FROM sap_notifications
             WHERE (order_no IS NULL OR order_no = '')
@@ -560,7 +579,7 @@ def _get_sap_data() -> dict:
         cur.execute("""
             SELECT order_no, order_type, system_status,
                    basic_fin_date, description,
-                   equipment, criticality, location, main_workctr
+                   equipment, criticality, location, main_workctr, plant
             FROM sap_work_orders
             WHERE system_status ILIKE '%REL%'
               AND actual_finish IS NULL
@@ -570,12 +589,20 @@ def _get_sap_data() -> dict:
         """)
         stagnant_wo = cur.fetchall()
 
+        def _enrich_plant(rows, col):
+            result = []
+            for r in rows:
+                d = dict(r)
+                d["ru"] = _plant_to_ru_name(d.get(col))
+                result.append(d)
+            return result
+
         return {
             "wo_summary_by_type": [dict(r) for r in wo_summary],
             "pm_compliance":      dict(pm_compliance) if pm_compliance else {},
-            "repeated_equipment": [dict(r) for r in repeated_eq],
-            "critical_backlog":   [dict(r) for r in critical_backlog],
-            "stagnant_wo":        [dict(r) for r in stagnant_wo],
+            "repeated_equipment": _enrich_plant(repeated_eq, "maint_plant"),
+            "critical_backlog":   _enrich_plant(critical_backlog, "maint_plant"),
+            "stagnant_wo":        _enrich_plant(stagnant_wo, "plant"),
         }
 
 
@@ -821,7 +848,7 @@ def _src_sap_wo():
         cur.execute("""
             SELECT order_no, order_type, system_status,
                    basic_fin_date, description,
-                   equipment, criticality, location, main_workctr
+                   equipment, criticality, location, main_workctr, plant
             FROM sap_work_orders
             WHERE (
                 (system_status ILIKE '%REL%' AND actual_finish IS NULL
@@ -834,9 +861,13 @@ def _src_sap_wo():
             ORDER BY basic_fin_date ASC
             LIMIT 100
         """)
-        rows = [dict(r) for r in cur.fetchall()]
-    cols = ["order_no", "order_type", "system_status", "basic_fin_date",
-            "description", "equipment", "criticality", "location"]
+        rows = []
+        for r in cur.fetchall():
+            d = dict(r)
+            d["ru"] = _plant_to_ru_name(d.get("plant"))
+            rows.append(d)
+    cols = ["ru", "plant", "order_no", "order_type", "system_status",
+            "basic_fin_date", "description", "equipment", "criticality", "location"]
     return rows, cols, "SAP Work Orders — Stagnant & Overdue"
 
 
@@ -845,6 +876,7 @@ def _src_sap_notif():
         cur.execute("""
             SELECT notif_type, notification, description,
                    equipment, functional_loc, location,
+                   maint_plant,
                    criticality, required_end, system_status
             FROM sap_notifications
             WHERE (order_no IS NULL OR order_no = '')
@@ -852,9 +884,13 @@ def _src_sap_notif():
             ORDER BY required_end ASC NULLS LAST
             LIMIT 100
         """)
-        rows = [dict(r) for r in cur.fetchall()]
-    cols = ["notif_type", "notification", "description", "equipment",
-            "functional_loc", "location", "criticality", "required_end"]
+        rows = []
+        for r in cur.fetchall():
+            d = dict(r)
+            d["ru"] = _plant_to_ru_name(d.get("maint_plant"))
+            rows.append(d)
+    cols = ["ru", "maint_plant", "notif_type", "notification", "description",
+            "equipment", "functional_loc", "location", "criticality", "required_end"]
     return rows, cols, "SAP Notifications — Critical Backlog (Belum Ada WO)"
 
 

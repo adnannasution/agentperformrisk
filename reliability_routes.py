@@ -10,7 +10,7 @@ from flask import Blueprint, request, jsonify, send_from_directory
 
 from docx import Document
 from reliability_agent import run_reliability_agent
-from reliability_data import save_laporan_bulanan, ensure_reliability_schema, get_source_rows, get_dashboard_data
+from reliability_data import save_laporan_bulanan, ensure_reliability_schema, get_source_rows
 from db import (
     save_reliability_output,
     fetch_reliability_outputs,
@@ -133,14 +133,16 @@ def run_agent():
             title=title,
             content=result["content"],
             batch_ref=f"{mode}_{now.strftime('%Y%m%d_%H%M')}",
+            dashboard_html=result.get("dashboard_html", ""),
         )
 
         return jsonify({
-            "success":   True,
-            "output_id": output_id,
-            "title":     title,
-            "mode":      mode,
-            "content":   result["content"],
+            "success":        True,
+            "output_id":      output_id,
+            "title":          title,
+            "mode":           mode,
+            "content":        result["content"],
+            "dashboard_html": result.get("dashboard_html", ""),
         })
 
     except Exception as e:
@@ -194,15 +196,6 @@ def get_source_data(source_key):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-@reliability_bp.route("/reliability/dashboard-data", methods=["GET"])
-def get_dashboard():
-    """Kembalikan data agregat untuk chart dashboard."""
-    try:
-        data = get_dashboard_data()
-        return jsonify({"success": True, "data": data})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 
 @reliability_bp.route("/reliability/last-report", methods=["GET"])

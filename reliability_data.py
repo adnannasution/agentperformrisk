@@ -45,6 +45,8 @@ def ensure_reliability_schema():
         "ALTER TABLE reports ALTER COLUMN type TYPE VARCHAR(50);",
         # Tambah kolom title jika belum ada
         "ALTER TABLE reports ADD COLUMN IF NOT EXISTS title VARCHAR(255);",
+        # Tambah kolom dashboard_html untuk menyimpan HTML dashboard dari LLM
+        "ALTER TABLE reliability_outputs ADD COLUMN IF NOT EXISTS dashboard_html TEXT;",
     ]
     conn = _get_conn()
     try:

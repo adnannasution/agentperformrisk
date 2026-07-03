@@ -45,6 +45,8 @@ def ensure_reliability_schema():
         "ALTER TABLE reports ALTER COLUMN type TYPE VARCHAR(50);",
         # Tambah kolom title jika belum ada
         "ALTER TABLE reports ADD COLUMN IF NOT EXISTS title VARCHAR(255);",
+        # Tambah kolom dashboard_html untuk menyimpan HTML dashboard dari LLM
+        "ALTER TABLE reliability_outputs ADD COLUMN IF NOT EXISTS dashboard_html TEXT;",
     ]
     conn = _get_conn()
     try:
@@ -854,6 +856,143 @@ def _src_sap_notif():
     cols = ["notif_type", "notification", "description", "equipment",
             "functional_loc", "location", "criticality", "required_end"]
     return rows, cols, "SAP Notifications — Critical Backlog (Belum Ada WO)"
+
+
+def get_dashboard_data() -> dict:
+    """Aggregasi ringkas dari semua tabel untuk chart dashboard."""
+    with _cursor() as cur:
+        # PAF realisasi & target per RU (periode terkini)
+        cur.execute("""
+            SELECT ru,
+                   ROUND(COALESCE(MAX(CASE WHEN target_realisasi='Realisasi' THEN value END), 0)::numeric, 2) AS realisasi,
+                   ROUND(COALESCE(MAX(CASE WHEN target_realisasi='Target'    THEN value END), 0)::numeric, 2) AS target
+            FROM paf
+            WHERE code_current = 1
+            GROUP BY ru ORDER BY ru
+        """)
+        paf_per_ru = [dict(r) for r in cur.fetchall()]
+
+        # ICU open per RU
+        cur.execute("""
+            SELECT ru,
+                   COUNT(*) FILTER (WHERE icu_status NOT ILIKE '%close%') AS open_count,
+                   COUNT(*) AS total
+            FROM icu_monitoring
+            GROUP BY ru ORDER BY ru
+        """)
+        icu_per_ru = [dict(r) for r in cur.fetchall()]
+
+        # RCPS traffic distribution
+        cur.execute("""
+            SELECT COALESCE(traffic, 'Unknown') AS traffic, COUNT(*) AS count
+            FROM rcps
+            GROUP BY traffic
+            ORDER BY CASE traffic WHEN 'Red' THEN 1 WHEN 'Yellow' THEN 2 WHEN 'Green' THEN 3 ELSE 4 END
+        """)
+        rcps_traffic = [dict(r) for r in cur.fetchall()]
+
+        # IRKAP on_track / delay / carry_over per RU
+        cur.execute("""
+            SELECT refinery_unit AS ru,
+                   SUM(CASE WHEN status_prognosa ILIKE '%on track%'
+                              OR status_prognosa ILIKE '%ontrack%' THEN 1 ELSE 0 END) AS on_track,
+                   SUM(CASE WHEN status_prognosa ILIKE '%delay%'   THEN 1 ELSE 0 END) AS delay,
+                   SUM(CASE WHEN status_prognosa ILIKE '%carry%'   THEN 1 ELSE 0 END) AS carry_over,
+                   COUNT(*) AS total
+            FROM irkap_program
+            GROUP BY refinery_unit ORDER BY refinery_unit
+        """)
+        irkap_per_ru = [dict(r) for r in cur.fetchall()]
+
+        # Bad Actor open vs closed (total)
+        cur.execute("""
+            SELECT
+                SUM(CASE WHEN status ILIKE '%open%'
+                           OR status ILIKE '%progress%'
+                           OR status ILIKE '%inprog%'  THEN 1 ELSE 0 END) AS open_count,
+                SUM(CASE WHEN status ILIKE '%close%'
+                           OR status ILIKE '%done%'
+                           OR status ILIKE '%selesai%' THEN 1 ELSE 0 END) AS closed_count,
+                COUNT(*) AS total
+            FROM bad_actor_monitoring
+        """)
+        bad_actor_summary = dict(cur.fetchone() or {})
+
+        # BOC avg MTBF / MTTR per RU
+        cur.execute("""
+            SELECT ru,
+                   ROUND(COALESCE(AVG(mtbf), 0)::numeric, 1) AS avg_mtbf,
+                   ROUND(COALESCE(AVG(mttr), 0)::numeric, 1) AS avg_mttr,
+                   COALESCE(SUM(frequency), 0)               AS total_failures
+            FROM boc
+            WHERE mtbf IS NOT NULL
+            GROUP BY ru ORDER BY ru
+        """)
+        boc_per_ru = [dict(r) for r in cur.fetchall()]
+
+        # PM Compliance (PTO3)
+        cur.execute("""
+            SELECT
+                COUNT(*) AS total_pm,
+                SUM(CASE WHEN system_status ILIKE '%TECO%'
+                           OR system_status ILIKE '%CLSD%' THEN 1 ELSE 0 END) AS completed_pm,
+                SUM(CASE WHEN basic_fin_date < CURRENT_DATE
+                          AND system_status NOT ILIKE '%TECO%'
+                          AND system_status NOT ILIKE '%CLSD%' THEN 1 ELSE 0 END) AS overdue_pm
+            FROM sap_work_orders
+            WHERE order_type ILIKE '%PTO3%'
+        """)
+        pm = dict(cur.fetchone() or {})
+
+        # Inspection overdue per RU
+        cur.execute("""
+            SELECT refinery_unit AS ru,
+                   SUM(CASE WHEN (actual_date IS NULL OR actual_date = '')
+                             AND due_date ~ '^\d{4}-\d{2}-\d{2}$'
+                             AND to_date(due_date, 'YYYY-MM-DD') < CURRENT_DATE
+                             THEN 1 ELSE 0 END) AS overdue,
+                   COUNT(*) AS total
+            FROM inspection_plan
+            GROUP BY refinery_unit ORDER BY refinery_unit
+        """)
+        inspection_per_ru = [dict(r) for r in cur.fetchall()]
+
+        # Stagnant WO total
+        cur.execute("""
+            SELECT COUNT(*) AS stagnant_count
+            FROM sap_work_orders
+            WHERE system_status ILIKE '%REL%'
+              AND actual_finish IS NULL
+              AND basic_fin_date < CURRENT_DATE
+        """)
+        stagnant = dict(cur.fetchone() or {})
+
+    # KPI rollup
+    icu_open   = sum(int(r.get('open_count') or 0) for r in icu_per_ru)
+    ins_over   = sum(int(r.get('overdue')    or 0) for r in inspection_per_ru)
+    rcps_red   = next((int(r['count']) for r in rcps_traffic if r['traffic'] == 'Red'), 0)
+    total_pm   = int(pm.get('total_pm') or 0)
+    comp_pm    = int(pm.get('completed_pm') or 0)
+    pm_pct     = round(comp_pm / total_pm * 100, 1) if total_pm else 0
+
+    return {
+        "kpi": {
+            "icu_open":            icu_open,
+            "bad_actor_open":      int(bad_actor_summary.get('open_count')  or 0),
+            "inspection_overdue":  ins_over,
+            "pm_compliance_pct":   pm_pct,
+            "rcps_red":            rcps_red,
+            "stagnant_wo":         int(stagnant.get('stagnant_count') or 0),
+        },
+        "paf_per_ru":        paf_per_ru,
+        "icu_per_ru":        icu_per_ru,
+        "rcps_traffic":      rcps_traffic,
+        "irkap_per_ru":      irkap_per_ru,
+        "bad_actor_summary": bad_actor_summary,
+        "boc_per_ru":        boc_per_ru,
+        "pm_compliance":     pm,
+        "inspection_per_ru": inspection_per_ru,
+    }
 
 
 def save_laporan_bulanan(title: str, content: str) -> int:

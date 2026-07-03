@@ -133,14 +133,16 @@ def run_agent():
             title=title,
             content=result["content"],
             batch_ref=f"{mode}_{now.strftime('%Y%m%d_%H%M')}",
+            dashboard_html=result.get("dashboard_html", ""),
         )
 
         return jsonify({
-            "success":   True,
-            "output_id": output_id,
-            "title":     title,
-            "mode":      mode,
-            "content":   result["content"],
+            "success":        True,
+            "output_id":      output_id,
+            "title":          title,
+            "mode":           mode,
+            "content":        result["content"],
+            "dashboard_html": result.get("dashboard_html", ""),
         })
 
     except Exception as e:
@@ -193,6 +195,7 @@ def get_source_data(source_key):
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 @reliability_bp.route("/reliability/last-report", methods=["GET"])

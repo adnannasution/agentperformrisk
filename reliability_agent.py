@@ -380,6 +380,68 @@ def _build_context(data: dict) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# DASHBOARD HTML PROMPT
+# ─────────────────────────────────────────────────────────────────────────────
+
+_DASHBOARD_SYSTEM = """Anda adalah dashboard HTML generator profesional untuk Reliability Performance & Risk kilang minyak Pertamina.
+
+Berdasarkan hasil analisis yang diberikan, buat sebuah halaman HTML dashboard yang menyajikan informasi secara visual dan ringkas.
+
+ATURAN WAJIB:
+1. Output HANYA berupa kode HTML mentah, mulai dari <!DOCTYPE html> hingga </html>
+2. JANGAN gunakan markdown code fence (``` atau ```html)
+3. Semua CSS harus inline dalam <style> di dalam <head>
+4. TIDAK BOLEH menggunakan library atau file eksternal (tidak ada CDN, tidak ada @import font)
+5. Sertakan angka dan fakta AKTUAL dari analisis — bukan placeholder
+
+STRUKTUR HALAMAN:
+- <header>: Judul "Reliability Dashboard", badge mode (Weekly/Monthly), timestamp
+- <section id="kpi">: Row KPI cards (3–4 kolom)
+- <section id="sections">: Grid 2 kolom untuk section cards
+- <footer>: Catatan singkat
+
+KPI CARDS — ekstrak angka dari analisis:
+- Tampilkan 4–6 KPI yang paling relevan (ICU Open, PM Compliance %, inspection overdue, WO stagnant, dst.)
+- Tiap card: angka besar (30px bold), label, sub-keterangan
+- Warna status otomatis berdasarkan kondisi:
+  - Baik  → bg #dcfce7, border #bbf7d0, nilai #15803d
+  - Perhatian → bg #fef3c7, border #fde68a, nilai #b45309
+  - Kritis → bg #fee2e2, border #fecaca, nilai #dc2626
+
+SECTION CARDS (## 1 s.d. ## 6):
+- Header: "1." + judul section + badge 🔴 Kritis / 🟡 Perhatian / 🟢 Baik
+- Badge ditentukan dari kandungan section: ada angka tinggi, risiko, atau warning → merah/kuning; kondisi oke → hijau
+- Isi: 3–5 bullet poin temuan terpenting; sertakan angka aktual; cetak tebal nilai kritis
+- Tiap section card boleh berbeda ukuran sesuai kepentingan (gunakan grid-column: span 2 untuk section paling kritis)
+
+DESAIN CSS:
+- Background: #f1f5f9; Container max-width: 1100px; margin: auto; padding: 20px 16px
+- Card: background #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,.05)
+- Font: system-ui, -apple-system, Arial, sans-serif; base 13px; line-height 1.55
+- Header accent (teal): #0d9488; teks gelap: #1e293b; teks muted: #64748b
+- Section grid: grid-template-columns: 1fr 1fr; gap: 14px
+- KPI grid: grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px
+- Responsive: @media (max-width:640px) ubah semua grid menjadi 1 kolom
+- Bullet poin padat, tidak perlu banyak whitespace
+
+BAHASA: Indonesia.
+Segera outputkan HANYA kode HTML, tanpa penjelasan lainnya."""
+
+
+def _extract_html(raw: str) -> str:
+    """Bersihkan output LLM — hapus code fence jika ada."""
+    s = raw.strip()
+    if s.startswith("```"):
+        lines = s.split("\n")
+        # hapus baris pertama (```html atau ```) dan baris terakhir (```)
+        inner = lines[1:] if lines[-1].strip() == "```" else lines[1:]
+        if inner and inner[-1].strip() == "```":
+            inner = inner[:-1]
+        s = "\n".join(inner).strip()
+    return s
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # RUN AGENT
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -421,14 +483,31 @@ def run_reliability_agent(mode: str = "weekly") -> dict:
         f"Mode: {label}"
     )
 
-    # 5. Call LLM
+    # 5. Call LLM — analisis
     response = llm.invoke([
         {"role": "system", "content": system},
         {"role": "user",   "content": user_msg},
     ])
+    analysis_content = response.content
+
+    # 6. Call LLM — generate HTML dashboard dari hasil analisis
+    label = "Weekly" if mode == "weekly" else "Monthly"
+    dashboard_user_msg = (
+        f"Buat HTML dashboard dari hasil analisis reliability {label} berikut:\n\n"
+        f"{analysis_content}"
+    )
+    try:
+        dashboard_response = llm.invoke([
+            {"role": "system", "content": _DASHBOARD_SYSTEM},
+            {"role": "user",   "content": dashboard_user_msg},
+        ])
+        dashboard_html = _extract_html(dashboard_response.content)
+    except Exception:
+        dashboard_html = ""
 
     return {
-        "content": response.content,
-        "mode":    mode,
-        "status":  "success",
+        "content":        analysis_content,
+        "dashboard_html": dashboard_html,
+        "mode":           mode,
+        "status":         "success",
     }

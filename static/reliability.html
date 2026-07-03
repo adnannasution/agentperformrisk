@@ -436,6 +436,29 @@
     transition: background .15s; line-height: 1.5; white-space: nowrap;
   }
   .src-btn:hover { background: var(--teal-700); }
+
+  /* ── OUTPUT TABS ─────────────────────────────────────────────── */
+  .output-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--slate-200); margin-bottom: 14px; }
+  .output-tab {
+    padding: 7px 18px; border: none; background: transparent; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: var(--slate-400);
+    border-bottom: 2px solid transparent; margin-bottom: -2px;
+    transition: color .15s, border-color .15s; font-family: inherit;
+  }
+  .output-tab.active { color: var(--teal-600); border-bottom-color: var(--teal-500); }
+  .output-tab:hover:not(.active) { color: var(--slate-600); }
+
+  .output-body.hide  { display: none; }
+  .dashboard-body    { display: none; }
+  .dashboard-body.show { display: block; }
+
+  .dashboard-frame {
+    width: 100%; border: none; border-radius: 8px;
+    display: block; min-height: 520px;
+    background: var(--slate-50);
+  }
+  .dashboard-loading { padding: 32px 0; text-align: center; color: var(--slate-400); font-size: 13px; }
+  .dashboard-empty   { padding: 48px 16px; text-align: center; color: var(--slate-300); font-size: 14px; font-style: italic; }
 </style>
 </head>
 <body>
@@ -498,7 +521,10 @@
     <!-- ── KANAN: OUTPUT ──────────────────────────────────────── -->
     <div class="card">
       <div class="output-header">
-        <div class="card-label" style="margin:0">📋 Hasil Analisis</div>
+        <div class="output-tabs">
+          <button class="output-tab active" id="tabAnalisis" onclick="switchOutputTab('analisis')">📋 Analisis</button>
+          <button class="output-tab" id="tabDashboard" onclick="switchOutputTab('dashboard')">📊 Dashboard</button>
+        </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="badge" id="outputBadge"></span>
           <span class="output-meta" id="outputTitle"></span>
@@ -506,6 +532,9 @@
       </div>
       <div class="output-body empty" id="outputBody">
         Jalankan agent untuk melihat hasil analisis.
+      </div>
+      <div class="dashboard-body" id="dashboardBody">
+        <div class="dashboard-empty">📊 Jalankan agent terlebih dahulu, lalu klik tab Dashboard untuk melihat visualisasi data.</div>
       </div>
     </div>
   </div>
@@ -728,11 +757,13 @@
       });
       const data = await res.json();
       if (data.success) {
+        currentOutputId   = data.output_id;
         output.innerHTML  = renderMd(data.content);
         badge.className   = `badge ${activeMode}`;
         badge.textContent = activeMode === 'weekly' ? 'Weekly' : 'Monthly';
         title.textContent = data.title;
         document.getElementById('lastRun').textContent = `Terakhir: ${new Date().toLocaleString('id-ID')}`;
+        refreshDashboard();
         loadHistory(activeFilter);
       } else {
         output.innerHTML = `<span style="color:var(--red-600)">❌ ${esc(data.error)}</span>`;
@@ -1007,12 +1038,14 @@
       const res  = await fetch(`/reliability/history/${id}`);
       const data = await res.json();
       if (data.success) {
+        currentOutputId   = id;
         const item = data.data;
         const isM  = item.output_type === 'reliability_monthly';
         output.innerHTML  = renderMd(item.content);
         badge.className   = `badge ${isM?'monthly':'weekly'}`;
         badge.textContent = isM ? 'Monthly' : 'Weekly';
         title.textContent = item.title || '';
+        refreshDashboard();
         window.scrollTo({top:0, behavior:'smooth'});
       } else {
         output.innerHTML=`<span style="color:var(--red-600)">❌ ${esc(data.error)}</span>`;
@@ -1022,6 +1055,69 @@
 
   function esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Output Tab Switching ─────────────────────────────────────────────────
+  let activeOutputTab  = 'analisis';
+  let currentOutputId  = null;
+  let _dashLoaded      = false;
+
+  function switchOutputTab(tab) {
+    activeOutputTab = tab;
+    document.getElementById('tabAnalisis').classList.toggle('active', tab === 'analisis');
+    document.getElementById('tabDashboard').classList.toggle('active', tab === 'dashboard');
+    const outputBody = document.getElementById('outputBody');
+    const dashBody   = document.getElementById('dashboardBody');
+    if (tab === 'analisis') {
+      outputBody.classList.remove('hide');
+      dashBody.classList.remove('show');
+    } else {
+      outputBody.classList.add('hide');
+      dashBody.classList.add('show');
+      loadDashboard();
+    }
+  }
+
+  // ── Dashboard ────────────────────────────────────────────────────────────
+  function refreshDashboard() {
+    _dashLoaded = false;
+    if (activeOutputTab === 'dashboard') loadDashboard();
+  }
+
+  async function loadDashboard() {
+    if (_dashLoaded) return;
+    const body = document.getElementById('dashboardBody');
+    if (!currentOutputId) {
+      body.innerHTML = '<div class="dashboard-empty">📊 Jalankan agent terlebih dahulu untuk melihat dashboard.</div>';
+      return;
+    }
+    body.innerHTML = '<div class="dashboard-loading">⏳ Memuat dashboard dari hasil analisis...</div>';
+    try {
+      const res  = await fetch(`/reliability/history/${currentOutputId}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Gagal memuat');
+      const html = data.data.dashboard_html;
+      if (!html || html.trim().length < 50) {
+        body.innerHTML = '<div class="dashboard-empty">⚠️ Dashboard belum tersedia untuk output ini.<br>Jalankan agent ulang untuk generate dashboard baru.</div>';
+        return;
+      }
+      body.innerHTML = '';
+      const iframe = document.createElement('iframe');
+      iframe.className = 'dashboard-frame';
+      iframe.sandbox   = 'allow-scripts';
+      body.appendChild(iframe);
+      iframe.srcdoc = html;
+      // auto-resize iframe setelah konten dimuat
+      iframe.onload = () => {
+        try {
+          const h = iframe.contentDocument.documentElement.scrollHeight;
+          if (h > 200) iframe.style.minHeight = h + 'px';
+        } catch(_) {}
+      };
+      _dashLoaded = true;
+    } catch(e) {
+      body.innerHTML = `<div class="dashboard-empty">❌ ${esc(e.message)}</div>`;
+    }
   }
 
   loadHistory('');

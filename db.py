@@ -124,13 +124,14 @@ def fetch_report_detail(report_id: int):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def save_reliability_output(output_type: str, title: str,
-                             content: str, batch_ref: str = "") -> int:
+                             content: str, batch_ref: str = "",
+                             dashboard_html: str = "") -> int:
     with db_cursor() as cur:
         cur.execute(
             """INSERT INTO reliability_outputs
-               (output_type, title, content, batch_ref)
-               VALUES (%s, %s, %s, %s) RETURNING id""",
-            (output_type, title, content, batch_ref)
+               (output_type, title, content, batch_ref, dashboard_html)
+               VALUES (%s, %s, %s, %s, %s) RETURNING id""",
+            (output_type, title, content, batch_ref, dashboard_html or None)
         )
         return cur.fetchone()["id"]
 

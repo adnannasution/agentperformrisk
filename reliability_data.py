@@ -10,8 +10,9 @@ from contextlib import contextmanager
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
-# Mapping kode plant SAP → nama RU
-_PLANT_TO_RU = {
+# Mapping universal semua variasi nilai RU → nama kanonik
+_RU_NORMALIZE = {
+    # SAP plant codes (sap_work_orders.plant)
     "6201": "RU II Dumai",
     "6202": "RU II Dumai",
     "6301": "RU III Plaju",
@@ -19,13 +20,53 @@ _PLANT_TO_RU = {
     "6501": "RU V Balikpapan",
     "6601": "RU VI Balongan",
     "6701": "RU VII Kasim",
+    # K-codes (bad_actor_monitoring.ru)
+    "K201": "RU II Dumai",
+    "K301": "RU III Plaju",
+    "K401": "RU IV Cilacap",
+    "K501": "RU V Balikpapan",
+    "K601": "RU VI Balongan",
+    "K701": "RU VII Kasim",
+    # Short form (paf.ru, icu_monitoring.ru)
+    "RU II":  "RU II Dumai",
+    "RU III": "RU III Plaju",
+    "RU IV":  "RU IV Cilacap",
+    "RU V":   "RU V Balikpapan",
+    "RU VI":  "RU VI Balongan",
+    "RU VII": "RU VII Kasim",
+    # Full form with city (irkap_program, rcps, critical_eqp)
+    "RU II DUMAI":      "RU II Dumai",
+    "RU III PLAJU":     "RU III Plaju",
+    "RU IV CILACAP":    "RU IV Cilacap",
+    "RU V BALIKPAPAN":  "RU V Balikpapan",
+    "RU VI BALONGAN":   "RU VI Balongan",
+    "RU VII KASIM":     "RU VII Kasim",
+    # Dash form (inspection_plan.refinery_unit)
+    "RU II - DUMAI":     "RU II Dumai",
+    "RU III - PLAJU":    "RU III Plaju",
+    "RU IV - CILACAP":   "RU IV Cilacap",
+    "RU V - BALIKPAPAN": "RU V Balikpapan",
+    "RU VI - BALONGAN":  "RU VI Balongan",
+    "RU VII - KASIM":    "RU VII Kasim",
+    # Sub-unit → gabung ke RU induk
+    "RU II PAKNING": "RU II Dumai",
+    # Special
+    "ALL": "ALL",
 }
 
 
-def _plant_to_ru_name(plant_code) -> str:
-    if plant_code is None:
+def _normalize_ru(value) -> str:
+    if value is None:
         return None
-    return _PLANT_TO_RU.get(str(plant_code).strip(), str(plant_code))
+    return _RU_NORMALIZE.get(str(value).strip().upper(), str(value).strip())
+
+
+def _add_ru_name(d: dict) -> dict:
+    """Tambahkan field ru_name (nama RU kanonik) ke setiap row dict."""
+    raw = d.get("ru") or d.get("refinery_unit") or d.get("kilang") \
+          or d.get("plant") or d.get("maint_plant")
+    d["ru_name"] = _normalize_ru(raw)
+    return d
 
 
 # ─── koneksi (tidak duplikasi dari db.py agar tidak circular import) ─────────
@@ -129,8 +170,8 @@ def _get_paf() -> dict:
         trend = cur.fetchall()
 
         return {
-            "current": [dict(r) for r in current],
-            "trend":   [dict(r) for r in trend],
+            "current": [_add_ru_name(dict(r)) for r in current],
+            "trend":   [_add_ru_name(dict(r)) for r in trend],
         }
 
 
@@ -146,7 +187,7 @@ def _get_issue_paf() -> list:
             WHERE code_current = 1
             ORDER BY ru, date DESC
         """)
-        return [dict(r) for r in cur.fetchall()]
+        return [_add_ru_name(dict(r)) for r in cur.fetchall()]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -179,8 +220,8 @@ def _get_bad_actor() -> dict:
         summary = cur.fetchall()
 
         return {
-            "list":    [dict(r) for r in all_actors],
-            "summary": [dict(r) for r in summary],
+            "list":    [_add_ru_name(dict(r)) for r in all_actors],
+            "summary": [_add_ru_name(dict(r)) for r in summary],
         }
 
 
@@ -214,8 +255,8 @@ def _get_icu() -> dict:
         summary = cur.fetchall()
 
         return {
-            "open_list": [dict(r) for r in open_icu],
-            "summary":   [dict(r) for r in summary],
+            "open_list": [_add_ru_name(dict(r)) for r in open_icu],
+            "summary":   [_add_ru_name(dict(r)) for r in summary],
         }
 
 
@@ -252,8 +293,8 @@ def _get_boc() -> dict:
         summary = cur.fetchall()
 
         return {
-            "low_mtbf_equipment": [dict(r) for r in low_mtbf],
-            "summary_by_ru":      [dict(r) for r in summary],
+            "low_mtbf_equipment": [_add_ru_name(dict(r)) for r in low_mtbf],
+            "summary_by_ru":      [_add_ru_name(dict(r)) for r in summary],
         }
 
 
@@ -275,7 +316,7 @@ def _get_rcps() -> list:
                        ELSE 4 END,
                      date DESC
         """)
-        return [dict(r) for r in cur.fetchall()]
+        return [_add_ru_name(dict(r)) for r in cur.fetchall()]
 
 
 def _get_rcps_rekomendasi() -> dict:
@@ -309,8 +350,8 @@ def _get_rcps_rekomendasi() -> dict:
         traffic_summary = cur.fetchall()
 
         return {
-            "open_recommendations": [dict(r) for r in open_rekom],
-            "traffic_summary":      [dict(r) for r in traffic_summary],
+            "open_recommendations": [_add_ru_name(dict(r)) for r in open_rekom],
+            "traffic_summary":      [_add_ru_name(dict(r)) for r in traffic_summary],
         }
 
 
@@ -376,9 +417,9 @@ def _get_irkap_summary() -> dict:
         actual_summary = cur.fetchall()
 
         return {
-            "program_summary": [dict(r) for r in program_summary],
-            "risk_programs":   [dict(r) for r in risk_programs],
-            "actual_summary":  [dict(r) for r in actual_summary],
+            "program_summary": [_add_ru_name(dict(r)) for r in program_summary],
+            "risk_programs":   [_add_ru_name(dict(r)) for r in risk_programs],
+            "actual_summary":  [_add_ru_name(dict(r)) for r in actual_summary],
         }
 
 
@@ -442,9 +483,9 @@ def _get_critical_equipment() -> dict:
         traffic_summary = cur.fetchall()
 
         return {
-            "primary_secondary": [dict(r) for r in prim_sec],
-            "utility":           [dict(r) for r in utl],
-            "traffic_summary":   [dict(r) for r in traffic_summary],
+            "primary_secondary": [_add_ru_name(dict(r)) for r in prim_sec],
+            "utility":           [_add_ru_name(dict(r)) for r in utl],
+            "traffic_summary":   [_add_ru_name(dict(r)) for r in traffic_summary],
         }
 
 
@@ -495,8 +536,8 @@ def _get_inspection_overdue() -> dict:
         summary = cur.fetchall()
 
         return {
-            "overdue_list": [dict(r) for r in overdue],
-            "summary":      [dict(r) for r in summary],
+            "overdue_list": [_add_ru_name(dict(r)) for r in overdue],
+            "summary":      [_add_ru_name(dict(r)) for r in summary],
         }
 
 
@@ -589,20 +630,12 @@ def _get_sap_data() -> dict:
         """)
         stagnant_wo = cur.fetchall()
 
-        def _enrich_plant(rows, col):
-            result = []
-            for r in rows:
-                d = dict(r)
-                d["ru"] = _plant_to_ru_name(d.get(col))
-                result.append(d)
-            return result
-
         return {
             "wo_summary_by_type": [dict(r) for r in wo_summary],
             "pm_compliance":      dict(pm_compliance) if pm_compliance else {},
-            "repeated_equipment": _enrich_plant(repeated_eq, "maint_plant"),
-            "critical_backlog":   _enrich_plant(critical_backlog, "maint_plant"),
-            "stagnant_wo":        _enrich_plant(stagnant_wo, "plant"),
+            "repeated_equipment": [_add_ru_name(dict(r)) for r in repeated_eq],
+            "critical_backlog":   [_add_ru_name(dict(r)) for r in critical_backlog],
+            "stagnant_wo":        [_add_ru_name(dict(r)) for r in stagnant_wo],
         }
 
 
@@ -668,8 +701,8 @@ def _src_paf():
             WHERE code_current = 1
             ORDER BY ru, type, target_realisasi
         """)
-        rows = [dict(r) for r in cur.fetchall()]
-    cols = ["ru", "type", "target_realisasi", "value", "target", "plan_unplan", "month_update"]
+        rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
+    cols = ["ru_name", "ru", "type", "target_realisasi", "value", "target", "plan_unplan", "month_update"]
     return rows, cols, "PAF — Plant Availability Factor (Periode Aktif)"
 
 
@@ -681,8 +714,8 @@ def _src_issue_paf():
             WHERE code_current = 1
             ORDER BY ru, date DESC
         """)
-        rows = [dict(r) for r in cur.fetchall()]
-    cols = ["ru", "type", "date", "issue", "month_update"]
+        rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
+    cols = ["ru_name", "ru", "type", "date", "issue", "month_update"]
     return rows, cols, "Issue PAF — Penyebab Kehilangan Availability"
 
 
@@ -698,8 +731,8 @@ def _src_bad_actor():
                      periode DESC NULLS LAST
             LIMIT 100
         """)
-        rows = [dict(r) for r in cur.fetchall()]
-    cols = ["ru", "tag_number", "status", "problem", "action_plan",
+        rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
+    cols = ["ru_name", "ru", "tag_number", "status", "problem", "action_plan",
             "category_action_plan", "progress", "target_date", "periode"]
     return rows, cols, "Bad Actor Monitoring — Equipment dengan Failure Berulang"
 
@@ -716,8 +749,8 @@ def _src_icu():
             ORDER BY ru, report_date DESC NULLS LAST
             LIMIT 100
         """)
-        rows = [dict(r) for r in cur.fetchall()]
-    cols = ["ru", "tag_no", "icu_status", "issue", "mitigation",
+        rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
+    cols = ["ru_name", "ru", "tag_no", "icu_status", "issue", "mitigation",
             "mitigasi_category", "progress", "target_closed", "report_date"]
     return rows, cols, "ICU Monitoring — Integrity Concern Unit (Open)"
 
@@ -735,8 +768,8 @@ def _src_boc():
             ORDER BY mtbf ASC
             LIMIT 100
         """)
-        rows = [dict(r) for r in cur.fetchall()]
-    cols = ["ru", "equipment", "grup_equipment", "status",
+        rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
+    cols = ["ru_name", "ru", "equipment", "grup_equipment", "status",
             "frequency", "running_hours", "mttr", "mtbf", "hasil"]
     return rows, cols, "BOC — MTBF & MTTR Equipment (Diurutkan MTBF Terendah)"
 
@@ -754,8 +787,8 @@ def _src_rcps():
                      date DESC
             LIMIT 100
         """)
-        rows = [dict(r) for r in cur.fetchall()]
-    cols = ["kilang", "rcps_no", "judul_rcps", "disiplin",
+        rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
+    cols = ["ru_name", "kilang", "rcps_no", "judul_rcps", "disiplin",
             "criticallity", "traffic", "sum_of_progress", "date"]
     return rows, cols, "RCPS — Root Cause Problem Solving"
 
@@ -775,8 +808,8 @@ def _src_irkap():
                      finish_plan ASC NULLS LAST
             LIMIT 100
         """)
-        rows = [dict(r) for r in cur.fetchall()]
-    cols = ["refinery_unit", "no_program_kerja", "program_kerja",
+        rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
+    cols = ["ru_name", "refinery_unit", "no_program_kerja", "program_kerja",
             "equipment_tag_no", "status_step", "status_prognosa", "top_risk", "finish_plan"]
     return rows, cols, "IRKAP — Program Kerja (Diurutkan Status Delay)"
 
@@ -816,8 +849,8 @@ def _src_critical_eqp():
         """)
         utl = [dict(r) for r in cur.fetchall()]
 
-    rows = prim + utl
-    cols = ["refinery_unit", "unit_proses", "equipment", "highlight_issue",
+    rows = [_add_ru_name(r) for r in prim + utl]
+    cols = ["ru_name", "refinery_unit", "unit_proses", "equipment", "highlight_issue",
             "corrective_action", "target_corrective", "traffic_corrective", "month_update"]
     return rows, cols, "Critical Equipment — Primary/Secondary & UTL dengan Issue"
 
@@ -837,8 +870,8 @@ def _src_inspection():
             ORDER BY refinery_unit, due_date ASC
             LIMIT 100
         """)
-        rows = [dict(r) for r in cur.fetchall()]
-    cols = ["refinery_unit", "area", "unit", "tag_no_ln", "type_equipment",
+        rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
+    cols = ["ru_name", "refinery_unit", "area", "unit", "tag_no_ln", "type_equipment",
             "type_inspection", "due_date", "plan_date", "result_remaining_life", "grand_result"]
     return rows, cols, "Inspection Plan — Overdue (Belum Ada Realisasi)"
 
@@ -861,12 +894,8 @@ def _src_sap_wo():
             ORDER BY basic_fin_date ASC
             LIMIT 100
         """)
-        rows = []
-        for r in cur.fetchall():
-            d = dict(r)
-            d["ru"] = _plant_to_ru_name(d.get("plant"))
-            rows.append(d)
-    cols = ["ru", "plant", "order_no", "order_type", "system_status",
+        rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
+    cols = ["ru_name", "plant", "order_no", "order_type", "system_status",
             "basic_fin_date", "description", "equipment", "criticality", "location"]
     return rows, cols, "SAP Work Orders — Stagnant & Overdue"
 
@@ -884,12 +913,8 @@ def _src_sap_notif():
             ORDER BY required_end ASC NULLS LAST
             LIMIT 100
         """)
-        rows = []
-        for r in cur.fetchall():
-            d = dict(r)
-            d["ru"] = _plant_to_ru_name(d.get("maint_plant"))
-            rows.append(d)
-    cols = ["ru", "maint_plant", "notif_type", "notification", "description",
+        rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
+    cols = ["ru_name", "maint_plant", "notif_type", "notification", "description",
             "equipment", "functional_loc", "location", "criticality", "required_end"]
     return rows, cols, "SAP Notifications — Critical Backlog (Belum Ada WO)"
 

@@ -61,12 +61,24 @@ def _normalize_ru(value) -> str:
     return _RU_NORMALIZE.get(str(value).strip().upper(), str(value).strip())
 
 
-def _add_ru_name(d: dict) -> dict:
-    """Tambahkan field ru_name (nama RU kanonik) ke setiap row dict."""
-    raw = d.get("ru") or d.get("refinery_unit") or d.get("kilang") \
-          or d.get("plant") or d.get("maint_plant")
-    d["ru_name"] = _normalize_ru(raw)
+def _enrich_row(d: dict) -> dict:
+    """Tambahkan ru_name dan equipment_tag ke setiap row dict."""
+    raw_ru = d.get("ru") or d.get("refinery_unit") or d.get("kilang") \
+             or d.get("plant") or d.get("maint_plant")
+    d["ru_name"] = _normalize_ru(raw_ru)
+
+    d["equipment_tag"] = (
+        d.get("tag_number")           # bad_actor_monitoring
+        or d.get("tag_no")            # icu_monitoring
+        or d.get("equipment_tag_no")  # irkap_program
+        or d.get("tag_no_ln")         # inspection_plan
+        or d.get("equipment")         # boc, critical_eqp, sap_work_orders, sap_notifications
+    )
     return d
+
+
+# backward-compat alias
+_add_ru_name = _enrich_row
 
 
 # ─── koneksi (tidak duplikasi dari db.py agar tidak circular import) ─────────

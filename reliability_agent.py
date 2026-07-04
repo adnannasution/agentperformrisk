@@ -141,6 +141,14 @@ def _filter_ru(rows: list, ru: str) -> list:
     return [r for r in rows if (r.get("ru_name") or "").strip() == ru.strip()]
 
 
+def _count_by_ru(rows: list, ru: str, key_name: str = "ru_name") -> str:
+    """Return per-RU count string, e.g. 'RU II: 34, RU IV: 87'"""
+    from collections import Counter
+    filtered = _filter_ru(rows, ru) if ru else rows
+    counts = Counter((r.get(key_name) or r.get("ru") or "Unknown") for r in filtered)
+    return ", ".join(f"{k}: {v}" for k, v in sorted(counts.items()))
+
+
 def _build_context(data: dict, ru: str = None) -> str:
     """Build LLM context string. If ru is set, filter rows to that RU only."""
     parts = []
@@ -171,8 +179,10 @@ def _build_context(data: dict, ru: str = None) -> str:
     # ── ISSUE PAF ─────────────────────────────────────────────────────────────
     issues = data.get("issue_paf", [])
     if issues:
-        parts.append("\n=== Issue PAF (Penyebab Kehilangan Availability) ===")
-        for r in _filter_ru(issues, ru)[:25]:
+        filtered_issues = _filter_ru(issues, ru)
+        parts.append(f"\n=== Issue PAF (Penyebab Kehilangan Availability) ===")
+        parts.append(f"[STATS] Total Issue PAF: {len(filtered_issues)} | Per RU: {_count_by_ru(issues, ru)}")
+        for r in filtered_issues[:25]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | Type: {r.get('type')} | "
                 f"Tanggal: {r.get('date')} | Issue: {r.get('issue')}"
@@ -188,10 +198,11 @@ def _build_context(data: dict, ru: str = None) -> str:
                 f"Open: {r.get('open_count')} | Closed: {r.get('closed_count')}"
             )
     if bad.get("list"):
+        all_ba    = _filter_ru(bad["list"], ru)
+        open_ba   = [r for r in all_ba if any(k in str(r.get("status", "")).lower()
+                     for k in ("open", "progress", "inprogress"))]
+        parts.append(f"[STATS] Bad Actor — Total: {len(all_ba)} | Open: {len(open_ba)} | Per RU (open): {_count_by_ru(open_ba, None)}")
         parts.append("--- Detail Bad Actor (Open) ---")
-        open_ba = [r for r in _filter_ru(bad["list"], ru)
-                   if any(k in str(r.get("status", "")).lower()
-                          for k in ("open", "progress", "inprogress"))]
         for r in open_ba[:15]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | "
@@ -210,8 +221,10 @@ def _build_context(data: dict, ru: str = None) -> str:
                 f"Open: {r.get('open_count')} | Closed: {r.get('closed_count')}"
             )
     if icu.get("open_list"):
+        open_icu = _filter_ru(icu["open_list"], ru)
+        parts.append(f"[STATS] ICU Open: {len(open_icu)} | Per RU: {_count_by_ru(open_icu, None)}")
         parts.append("--- ICU Open ---")
-        for r in _filter_ru(icu["open_list"], ru)[:15]:
+        for r in open_icu[:15]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | "
                 f"Tag: {r.get('equipment_tag')} | "
@@ -243,8 +256,11 @@ def _build_context(data: dict, ru: str = None) -> str:
     # ── RCPS ──────────────────────────────────────────────────────────────────
     rcps_list = data.get("rcps", [])
     if rcps_list:
-        parts.append("\n=== RCPS (Root Cause & Progress) ===")
-        for r in _filter_ru(rcps_list, ru)[:12]:
+        filtered_rcps = _filter_ru(rcps_list, ru)
+        red_rcps = [r for r in filtered_rcps if str(r.get("traffic","")).upper() == "RED"]
+        parts.append(f"\n=== RCPS (Root Cause & Progress) ===")
+        parts.append(f"[STATS] Total RCPS: {len(filtered_rcps)} | Traffic RED: {len(red_rcps)} | Per RU: {_count_by_ru(filtered_rcps, None, 'kilang')}")
+        for r in filtered_rcps[:12]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('kilang')} | No: {r.get('rcps_no')} | "
                 f"Judul: {r.get('judul_rcps')} | "
@@ -262,8 +278,10 @@ def _build_context(data: dict, ru: str = None) -> str:
                 f"Total: {r.get('total')}"
             )
     if rcps_rek.get("open_recommendations"):
+        open_rek = _filter_ru(rcps_rek["open_recommendations"], ru)
+        parts.append(f"[STATS] RCPS Rekomendasi Belum Selesai: {len(open_rek)}")
         parts.append("--- RCPS Rekomendasi Belum Selesai ---")
-        for r in _filter_ru(rcps_rek["open_recommendations"], ru)[:10]:
+        for r in open_rek[:10]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('kilang')} | "
                 f"Rekomendasi: {r.get('rekomendasi')} | "
@@ -307,8 +325,11 @@ def _build_context(data: dict, ru: str = None) -> str:
                 f"Green: {r.get('green_count')}"
             )
 
-    red_items = [r for r in _filter_ru(crit.get("primary_secondary", []), ru)
-                 if str(r.get("traffic_corrective", "")).upper() == "RED"]
+    all_crit = _filter_ru(crit.get("primary_secondary", []), ru)
+    red_items    = [r for r in all_crit if str(r.get("traffic_corrective", "")).upper() == "RED"]
+    yellow_items = [r for r in all_crit if str(r.get("traffic_corrective", "")).upper() == "YELLOW"]
+    if all_crit:
+        parts.append(f"[STATS] Critical Equipment — RED: {len(red_items)} | YELLOW: {len(yellow_items)}")
     if red_items:
         parts.append("--- Critical Equipment Status RED ---")
         for r in red_items[:10]:
@@ -319,9 +340,6 @@ def _build_context(data: dict, ru: str = None) -> str:
                 f"Action: {r.get('corrective_action')} | "
                 f"Target: {r.get('target_corrective')}"
             )
-
-    yellow_items = [r for r in _filter_ru(crit.get("primary_secondary", []), ru)
-                    if str(r.get("traffic_corrective", "")).upper() == "YELLOW"]
     if yellow_items:
         parts.append("--- Critical Equipment Status YELLOW ---")
         for r in yellow_items[:8]:
@@ -335,6 +353,11 @@ def _build_context(data: dict, ru: str = None) -> str:
     insp = data.get("inspection_overdue", {})
     if insp.get("summary"):
         parts.append("\n=== Inspection Plan — Summary per RU ===")
+        total_overdue = sum(int(r.get("overdue") or 0) for r in _filter_ru(insp["summary"], ru))
+        total_plan    = sum(int(r.get("total_plan") or 0) for r in _filter_ru(insp["summary"], ru))
+        parts.append(f"[STATS] Total Plan: {total_plan} | Total Overdue: {total_overdue} | Per RU overdue: " +
+                     ", ".join(f"{r.get('ru_name') or r.get('refinery_unit')}: {r.get('overdue')}"
+                               for r in _filter_ru(insp["summary"], ru)))
         for r in _filter_ru(insp["summary"], ru):
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
@@ -357,7 +380,11 @@ def _build_context(data: dict, ru: str = None) -> str:
     # ── SAP ───────────────────────────────────────────────────────────────────
     sap = data.get("sap", {})
     if sap.get("wo_summary_by_type"):
-        parts.append("\n=== SAP Work Order — Summary per Type ===")
+        total_wo       = sum(int(r.get("total") or 0) for r in sap["wo_summary_by_type"])
+        total_stagnant = sum(int(r.get("stagnant") or 0) for r in sap["wo_summary_by_type"])
+        total_overdue_wo = sum(int(r.get("overdue") or 0) for r in sap["wo_summary_by_type"])
+        parts.append(f"\n=== SAP Work Order — Summary per Type ===")
+        parts.append(f"[STATS] Total WO: {total_wo} | Stagnant: {total_stagnant} | Overdue: {total_overdue_wo}")
         for r in sap["wo_summary_by_type"]:
             parts.append(
                 f"Type: {r.get('order_type')} | "
@@ -375,15 +402,15 @@ def _build_context(data: dict, ru: str = None) -> str:
         rate       = round((completed / total_pm) * 100, 1) if total_pm > 0 else 0
         parts.append(
             f"\n=== PM Compliance (PTO3) ===\n"
-            f"Total PM WO: {total_pm} | "
-            f"Completed: {completed} | "
-            f"Overdue: {overdue_pm} | "
-            f"Completion Rate: {rate}%"
+            f"[STATS] Total PM WO: {total_pm} | Completed: {completed} | "
+            f"Overdue: {overdue_pm} | Completion Rate: {rate}%"
         )
 
     if sap.get("repeated_equipment"):
-        parts.append("\n=== Equipment Notifikasi Berulang (Leading Indicator) ===")
-        for r in _filter_ru(sap["repeated_equipment"], ru)[:10]:
+        rep_eq = _filter_ru(sap["repeated_equipment"], ru)
+        parts.append(f"\n=== Equipment Notifikasi Berulang (Leading Indicator) ===")
+        parts.append(f"[STATS] Total equipment dengan notifikasi berulang: {len(rep_eq)}")
+        for r in rep_eq[:10]:
             parts.append(
                 f"RU: {r.get('ru_name')} | "
                 f"Equipment: {r.get('equipment_tag')} | "
@@ -395,8 +422,10 @@ def _build_context(data: dict, ru: str = None) -> str:
             )
 
     if sap.get("stagnant_wo"):
-        parts.append("\n=== WO Stagnant (REL, Overdue, Belum Selesai) ===")
-        for r in _filter_ru(sap["stagnant_wo"], ru)[:10]:
+        stag = _filter_ru(sap["stagnant_wo"], ru)
+        parts.append(f"\n=== WO Stagnant (REL, Overdue, Belum Selesai) ===")
+        parts.append(f"[STATS] Total WO Stagnant: {len(stag)} | Per RU: {_count_by_ru(stag, None)}")
+        for r in stag[:10]:
             parts.append(
                 f"RU: {r.get('ru_name')} | "
                 f"WO: {r.get('order_no')} | "
@@ -407,8 +436,10 @@ def _build_context(data: dict, ru: str = None) -> str:
             )
 
     if sap.get("critical_backlog"):
-        parts.append("\n=== Notifikasi Kritis Tanpa WO (Backlog) ===")
-        for r in _filter_ru(sap["critical_backlog"], ru)[:10]:
+        cb = _filter_ru(sap["critical_backlog"], ru)
+        parts.append(f"\n=== Notifikasi Kritis Tanpa WO (Backlog) ===")
+        parts.append(f"[STATS] Total Critical Backlog: {len(cb)} | Per RU: {_count_by_ru(cb, None)}")
+        for r in cb[:10]:
             parts.append(
                 f"RU: {r.get('ru_name')} | "
                 f"Notif: {r.get('notification')} | "
@@ -420,8 +451,13 @@ def _build_context(data: dict, ru: str = None) -> str:
 
     # ── MAINTENANCE SPEND ────────────────────────────────────────────────────
     if sap.get("spend_summary"):
-        parts.append("\n=== Maintenance Spend Summary per RU ===")
-        for r in _filter_ru(sap["spend_summary"], ru):
+        spend_rows  = _filter_ru(sap["spend_summary"], ru)
+        total_plan  = sum(float(r.get("plan_cost") or 0) for r in spend_rows)
+        total_act   = sum(float(r.get("act_cost") or 0) for r in spend_rows)
+        avg_abs     = round((total_act / total_plan * 100), 1) if total_plan > 0 else 0
+        parts.append(f"\n=== Maintenance Spend Summary per RU ===")
+        parts.append(f"[STATS] Total Plan Cost: {total_plan:,.0f} | Total Actual Cost: {total_act:,.0f} | Avg Absorption: {avg_abs}%")
+        for r in spend_rows:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('plant')} | "
                 f"Total WO: {r.get('total_wo')} | "

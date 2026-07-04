@@ -775,7 +775,6 @@ def _src_bad_actor():
             ORDER BY ru,
                      CASE WHEN status ILIKE '%open%' OR status ILIKE '%progress%' THEN 1 ELSE 2 END,
                      periode DESC NULLS LAST
-            LIMIT 100
         """)
         rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
     cols = ["ru_name", "ru", "tag_number", "status", "problem", "action_plan",
@@ -793,7 +792,6 @@ def _src_icu():
             FROM icu_monitoring
             WHERE icu_status NOT ILIKE '%close%'
             ORDER BY ru, report_date DESC NULLS LAST
-            LIMIT 100
         """)
         rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
     cols = ["ru_name", "ru", "tag_no", "icu_status", "issue", "mitigation",
@@ -812,7 +810,6 @@ def _src_boc():
             FROM boc
             WHERE mtbf IS NOT NULL
             ORDER BY mtbf ASC
-            LIMIT 100
         """)
         rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
     cols = ["ru_name", "ru", "equipment", "grup_equipment", "status",
@@ -831,7 +828,6 @@ def _src_rcps():
             ORDER BY kilang,
                      CASE traffic WHEN 'Red' THEN 1 WHEN 'Yellow' THEN 2 WHEN 'Green' THEN 3 ELSE 4 END,
                      date DESC
-            LIMIT 100
         """)
         rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
     cols = ["ru_name", "kilang", "rcps_no", "judul_rcps", "disiplin",
@@ -852,7 +848,6 @@ def _src_irkap():
                        WHEN 'Carry Over' THEN 2
                        ELSE 3 END,
                      finish_plan ASC NULLS LAST
-            LIMIT 100
         """)
         rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
     cols = ["ru_name", "refinery_unit", "no_program_kerja", "program_kerja",
@@ -873,7 +868,6 @@ def _src_critical_eqp():
             ORDER BY refinery_unit,
                      CASE UPPER(traffic_corrective)
                        WHEN 'RED' THEN 1 WHEN 'YELLOW' THEN 2 WHEN 'GREEN' THEN 3 ELSE 4 END
-            LIMIT 80
         """)
         prim = [dict(r) for r in cur.fetchall()]
 
@@ -891,7 +885,6 @@ def _src_critical_eqp():
             ORDER BY refinery_unit,
                      CASE UPPER(traffic_corrective)
                        WHEN 'RED' THEN 1 WHEN 'YELLOW' THEN 2 WHEN 'GREEN' THEN 3 ELSE 4 END
-            LIMIT 40
         """)
         utl = [dict(r) for r in cur.fetchall()]
 
@@ -914,7 +907,6 @@ def _src_inspection():
               AND due_date ~ '^\d{4}-\d{2}-\d{2}$'
               AND to_date(due_date, 'YYYY-MM-DD') < CURRENT_DATE
             ORDER BY refinery_unit, due_date ASC
-            LIMIT 100
         """)
         rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
     cols = ["ru_name", "refinery_unit", "area", "unit", "tag_no_ln", "type_equipment",
@@ -938,7 +930,6 @@ def _src_sap_wo():
                  AND system_status NOT ILIKE '%CLSD%')
             )
             ORDER BY basic_fin_date ASC
-            LIMIT 100
         """)
         rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
     cols = ["ru_name", "plant", "order_no", "order_type", "system_status",
@@ -957,7 +948,6 @@ def _src_sap_notif():
             WHERE (order_no IS NULL OR order_no = '')
               AND UPPER(criticality) IN ('1', '2', 'H', 'VH', 'HIGH', 'VERY HIGH')
             ORDER BY required_end ASC NULLS LAST
-            LIMIT 100
         """)
         rows = [_add_ru_name(dict(r)) for r in cur.fetchall()]
     cols = ["ru_name", "maint_plant", "notif_type", "notification", "description",

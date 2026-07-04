@@ -448,6 +448,27 @@
   .output-tab.active { color: var(--teal-600); border-bottom-color: var(--teal-500); }
   .output-tab:hover:not(.active) { color: var(--slate-600); }
 
+  /* RU scope tabs */
+  .ru-scope-bar {
+    display: flex; gap: 4px; flex-wrap: wrap;
+    margin-bottom: 12px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--slate-200);
+  }
+  .ru-tab {
+    padding: 4px 10px; border-radius: 16px; border: 1px solid var(--slate-200);
+    background: var(--slate-50); cursor: pointer; font-size: 11px; font-weight: 600;
+    color: var(--slate-500); transition: all .15s; font-family: inherit;
+  }
+  .ru-tab.active {
+    background: var(--teal-600); border-color: var(--teal-600); color: #fff;
+  }
+  .ru-tab:hover:not(.active) { border-color: var(--teal-400); color: var(--teal-700); }
+  .ru-tab .ru-tab-dot {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor; margin-right: 4px; opacity: .5;
+  }
+  .ru-tab.has-result .ru-tab-dot { opacity: 1; background: #22c55e; }
+
   .output-body.hide  { display: none; }
   .dashboard-body    { display: none; }
   .dashboard-body.show { display: block; }
@@ -507,8 +528,8 @@
         </div>
         <div class="info-grid">
           <div class="info-item"><div class="lbl">Mode</div><div class="val" id="modeDisplay">Weekly</div></div>
+          <div class="info-item"><div class="lbl">Scope</div><div class="val" id="scopeDisplay">Overall</div></div>
           <div class="info-item"><div class="lbl">Sumber Data</div><div class="val">12 Tabel DB</div></div>
-          <div class="info-item"><div class="lbl">Output</div><div class="val">6 Section</div></div>
           <div class="info-item"><div class="lbl">Model</div><div class="val">GPT-4o</div></div>
         </div>
         <button class="btn-run" id="btnRun" onclick="runAgent()">
@@ -520,6 +541,16 @@
 
     <!-- ── KANAN: OUTPUT ──────────────────────────────────────── -->
     <div class="card">
+      <!-- RU Scope Tabs -->
+      <div class="ru-scope-bar">
+        <button class="ru-tab active" data-ru="" onclick="selectRU(this)"><span class="ru-tab-dot"></span>Overall</button>
+        <button class="ru-tab" data-ru="RU II Dumai" onclick="selectRU(this)"><span class="ru-tab-dot"></span>RU II</button>
+        <button class="ru-tab" data-ru="RU III Plaju" onclick="selectRU(this)"><span class="ru-tab-dot"></span>RU III</button>
+        <button class="ru-tab" data-ru="RU IV Cilacap" onclick="selectRU(this)"><span class="ru-tab-dot"></span>RU IV</button>
+        <button class="ru-tab" data-ru="RU V Balikpapan" onclick="selectRU(this)"><span class="ru-tab-dot"></span>RU V</button>
+        <button class="ru-tab" data-ru="RU VI Balongan" onclick="selectRU(this)"><span class="ru-tab-dot"></span>RU VI</button>
+        <button class="ru-tab" data-ru="RU VII Kasim" onclick="selectRU(this)"><span class="ru-tab-dot"></span>RU VII</button>
+      </div>
       <div class="output-header">
         <div class="output-tabs">
           <button class="output-tab active" id="tabAnalisis" onclick="switchOutputTab('analisis')">📋 Analisis</button>
@@ -740,12 +771,48 @@
 <script>
   let activeMode   = 'weekly';
   let activeFilter = '';
+  let activeRU     = '';   // '' = Overall
+  // Cache hasil per RU key: `${mode}::${ru}` → { content, dashboard_html, title }
+  const ruResults  = {};
 
   function selectMode(mode) {
     activeMode = mode;
     document.getElementById('tabWeekly').classList.toggle('active', mode === 'weekly');
     document.getElementById('tabMonthly').classList.toggle('active', mode === 'monthly');
     document.getElementById('modeDisplay').textContent = mode === 'weekly' ? 'Weekly' : 'Monthly';
+    // show cached result for new mode+ru if available
+    _showCachedOrEmpty();
+  }
+
+  function selectRU(btn) {
+    activeRU = btn.dataset.ru;
+    document.querySelectorAll('.ru-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('scopeDisplay').textContent = activeRU || 'Overall';
+    _showCachedOrEmpty();
+  }
+
+  function _ruKey() { return `${activeMode}::${activeRU}`; }
+
+  function _showCachedOrEmpty() {
+    const cached = ruResults[_ruKey()];
+    const output = document.getElementById('outputBody');
+    const badge  = document.getElementById('outputBadge');
+    const title  = document.getElementById('outputTitle');
+    if (cached) {
+      output.className  = 'output-body';
+      output.innerHTML  = renderMd(cached.content);
+      badge.className   = `badge ${activeMode}`;
+      badge.textContent = activeMode === 'weekly' ? 'Weekly' : 'Monthly';
+      title.textContent = cached.title;
+      _applyDashboard(cached.dashboard_html);
+    } else {
+      output.className = 'output-body empty';
+      output.innerHTML = 'Jalankan agent untuk melihat hasil analisis.';
+      badge.className  = 'badge'; badge.textContent = '';
+      title.textContent = '';
+      _applyDashboard('');
+    }
   }
 
   function toggleInfo() {
@@ -784,32 +851,54 @@
   }
   function showMsg(el, type, text) { el.className=`upload-msg ${type}`; el.textContent=text; }
 
+  // ── Apply dashboard HTML ────────────────────────────────────────────────────
+  function _applyDashboard(html) {
+    const db = document.getElementById('dashboardBody');
+    if (html) {
+      db.innerHTML = `<iframe srcdoc="${html.replace(/"/g,'&quot;')}" style="width:100%;height:700px;border:none;border-radius:8px"></iframe>`;
+    } else {
+      db.innerHTML = '<div class="dashboard-empty">📊 Jalankan agent terlebih dahulu, lalu klik tab Dashboard untuk melihat visualisasi data.</div>';
+    }
+  }
+
   // ── Run Agent ───────────────────────────────────────────────────────────────
   async function runAgent() {
     const btn    = document.getElementById('btnRun');
     const output = document.getElementById('outputBody');
     const badge  = document.getElementById('outputBadge');
     const title  = document.getElementById('outputTitle');
+    const scopeLabel = activeRU || 'Overall';
 
     btn.disabled = true; btn.classList.add('loading');
     output.className = 'output-body';
-    output.innerHTML = '<span style="color:var(--slate-400)">⏳ Agent sedang menganalisis data dari database...</span>';
+    output.innerHTML = `<span style="color:var(--slate-400)">⏳ Agent sedang menganalisis data ${scopeLabel} dari database...</span>`;
     badge.className  = 'badge'; title.textContent = '';
 
     try {
       const res  = await fetch('/reliability/run', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ mode: activeMode }),
+        body: JSON.stringify({ mode: activeMode, ru: activeRU || null }),
       });
       const data = await res.json();
       if (data.success) {
-        currentOutputId   = data.output_id;
+        currentOutputId  = data.output_id;
+        // cache result
+        ruResults[_ruKey()] = {
+          content:       data.content,
+          dashboard_html: data.dashboard_html || '',
+          title:         data.title,
+        };
+        // mark RU tab as has-result
+        document.querySelectorAll('.ru-tab').forEach(b => {
+          if (b.dataset.ru === activeRU) b.classList.add('has-result');
+        });
+        output.className  = 'output-body';
         output.innerHTML  = renderMd(data.content);
         badge.className   = `badge ${activeMode}`;
         badge.textContent = activeMode === 'weekly' ? 'Weekly' : 'Monthly';
         title.textContent = data.title;
         document.getElementById('lastRun').textContent = `Terakhir: ${new Date().toLocaleString('id-ID')}`;
-        refreshDashboard();
+        _applyDashboard(data.dashboard_html || '');
         loadHistory(activeFilter);
       } else {
         output.innerHTML = `<span style="color:var(--red-600)">❌ ${esc(data.error)}</span>`;
@@ -1120,7 +1209,14 @@
     } else {
       outputBody.classList.add('hide');
       dashBody.classList.add('show');
-      loadDashboard();
+      // use cached dashboard if available, else fetch from API
+      const cached = ruResults[_ruKey()];
+      if (cached && cached.dashboard_html) {
+        _applyDashboard(cached.dashboard_html);
+        _dashLoaded = true;
+      } else {
+        loadDashboard();
+      }
     }
   }
 

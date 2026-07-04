@@ -111,22 +111,24 @@ def run_agent():
     """
     body = request.get_json(silent=True) or {}
     mode = body.get("mode", "weekly")
+    ru   = body.get("ru") or None  # None = overall
 
     if mode not in ("weekly", "monthly"):
         return jsonify({"error": "mode harus 'weekly' atau 'monthly'"}), 400
 
     try:
-        result = run_reliability_agent(mode=mode)
+        result = run_reliability_agent(mode=mode, ru=ru)
 
         now  = datetime.now()
         week = now.isocalendar()[1]
+        ru_suffix = f" — {ru}" if ru else ""
 
         if mode == "weekly":
-            title       = f"Weekly Reliability Review — W{week} {now.strftime('%b %Y')}"
-            output_type = "reliability_weekly"
+            title       = f"Weekly Reliability Review — W{week} {now.strftime('%b %Y')}{ru_suffix}"
+            output_type = f"reliability_weekly{'_' + ru.replace(' ', '_').lower() if ru else ''}"
         else:
-            title       = f"Monthly Reliability Health Review — {now.strftime('%B %Y')}"
-            output_type = "reliability_monthly"
+            title       = f"Monthly Reliability Health Review — {now.strftime('%B %Y')}{ru_suffix}"
+            output_type = f"reliability_monthly{'_' + ru.replace(' ', '_').lower() if ru else ''}"
 
         output_id = save_reliability_output(
             output_type=output_type,
@@ -141,6 +143,7 @@ def run_agent():
             "output_id":      output_id,
             "title":          title,
             "mode":           mode,
+            "ru":             ru,
             "content":        result["content"],
             "dashboard_html": result.get("dashboard_html", ""),
         })

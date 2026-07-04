@@ -502,6 +502,39 @@ Determine from analysis text; omit if not determinable.
 For percentage KPIs, render a slim bar (height:5px; border-radius:3px; background:#e2e8f0) with a fill div (height:100%; border-radius:3px). Color fill by value:
   ≥95% → #16a34a | 85–94% → #b45309 | 70–84% → #c2410c | <70% → #dc2626
 
+━━━ SVG CHART COMPONENTS (inline, zero dependencies) ━━━
+
+CHART A — Horizontal Bar Chart (for comparing values across 6 RUs):
+  Use inline <svg> with fixed viewBox. Each bar = a <rect> + <text> label left + value right.
+  Bar height: 22px, gap: 10px. Color bar by status. Background track: #e2e8f0.
+  Example structure (adapt values from analysis):
+  <svg viewBox="0 0 400 220" width="100%" style="display:block">
+    <!-- RU II Dumai -->
+    <text x="0" y="20" font-size="11" fill="#64748b">RU II Dumai</text>
+    <rect x="110" y="8" width="240" height="16" rx="4" fill="#e2e8f0"/>
+    <rect x="110" y="8" width="[pct*240]" height="16" rx="4" fill="[status-color]"/>
+    <text x="355" y="20" font-size="11" fill="#0f172a" font-weight="700">[value]</text>
+    <!-- repeat for each RU -->
+  </svg>
+
+CHART B — Donut / Ring Gauge (for single % KPI like absorption, PAF, PM compliance):
+  Pure SVG circle approach. Two <circle> elements using stroke-dasharray/stroke-dashoffset.
+  r=40, cx=60, cy=60, viewBox="0 0 120 120"
+  Track circle: stroke:#e2e8f0, stroke-width:10, fill:none
+  Fill circle: stroke:[status-color], stroke-width:10, fill:none,
+    stroke-dasharray: "[pct*251.2] 251.2"  (circumference = 2π×40 ≈ 251.2)
+    stroke-dashoffset: 62.8  (start from top: 251.2×0.25)
+    transform="rotate(-90,60,60)"
+  Center text: <text x="60" y="64" text-anchor="middle" font-size="18" font-weight="800" fill="[status-color]">[val]%</text>
+  Wrap in a flex row with label below for clean layout.
+
+CHART C — Mini Sparkline (for trend lines, 5–7 data points):
+  <svg viewBox="0 0 120 40" width="120" height="40">
+    <polyline points="[x1,y1 x2,y2 ...]" fill="none" stroke="[color]" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="[last_x]" cy="[last_y]" r="3" fill="[color]"/>
+  </svg>
+  Scale y: map min→36, max→4. If values unavailable, omit sparkline entirely.
+
 ━━━ PAGE STRUCTURE ━━━
 
 [1] HEADER BAR (full-width, bg:#ffffff, border-bottom:2px solid #e2e8f0, padding:16px 32px; box-shadow:0 1px 4px rgba(0,0,0,.06))
@@ -514,7 +547,7 @@ For percentage KPIs, render a slim bar (height:5px; border-radius:3px; backgroun
 [3] EXECUTIVE SUMMARY CARD (full-width, surface bg)
   — Extract content of ## 1. Executive Reliability Health Summary
   — Left panel (60%): 3–4 key findings as styled bullet rows. Each row: colored dot + bold finding text + muted detail. Use border-left:3px solid for emphasis on critical items.
-  — Right panel (40%): "National Risk Score" — a large circular indicator (CSS-only, use border/clip approach or just a prominent number in a styled box) showing overall status + 2-line summary
+  — Right panel (40%): "National Risk Score" — a large circular indicator (CSS-only) showing overall status + 2-line summary
 
 [4] KPI SCORECARD ROW (6 cards, grid: repeat(6,1fr), gap:12px — stack to 3 then 2 on smaller screens)
   Each card (surface bg):
@@ -523,7 +556,7 @@ For percentage KPIs, render a slim bar (height:5px; border-radius:3px; backgroun
     - Progress bar (for % KPIs)
     - Label: 11px muted uppercase
     - Sub: 11px muted detail text
-    - Trend indicator
+    - Trend indicator (▲▼→)
   KPIs to show: PAF Realisasi (%), ICU Open (total), Bad Actor Open, Inspection Overdue, PM Compliance (%), Critical Backlog / WO Stagnant
 
 [5] RU HEALTH MATRIX (full-width card, surface bg)
@@ -535,7 +568,21 @@ For percentage KPIs, render a slim bar (height:5px; border-radius:3px; backgroun
     - 3 mini KPI rows: small label + value inline
     - 2 key concerns as small bullet points (font-size:11px, muted)
 
-[6] ANALYSIS SECTIONS GRID (2-column grid, gap:16px)
+[6] CHARTS ROW (2-column, gap:16px)
+  Left card — "PAF per RU" horizontal bar chart (CHART A). Extract PAF % per RU from ## 2 and ## 3. Add target line indicator if target mentioned.
+  Right card — Split into 2 sub-sections stacked:
+    Top: "PM Compliance Nasional" donut gauge (CHART B) with % value from ## 5
+    Bottom: "Maintenance Spend Absorption" donut gauge (CHART B) with % from ## 7
+  Each card has a section label header and the chart below.
+
+[7] RU COMPARISON CHART CARD (full-width, surface bg)
+  Title: "ICU Open & Bad Actor per RU — Perbandingan"
+  Two horizontal bar charts side by side (CHART A × 2):
+    Left: ICU Open count per RU (bars colored: >500 red, 200-500 orange, <200 green)
+    Right: Bad Actor Open count per RU (same coloring logic)
+  Extract values from ## 2, ## 3, ## 8.
+
+[8] ANALYSIS SECTIONS GRID (2-column grid, gap:16px)
   For each ## 1–12, render a card:
     Header: circle number badge (22px, teal bg) + section title + status badge — all in one flex row
     Body: 3–5 bullet points, each as a styled row:
@@ -544,21 +591,21 @@ For percentage KPIs, render a slim bar (height:5px; border-radius:3px; backgroun
       - If a number is mentioned, render a subtle pill: font-size:11px, mono, bg:surface2, padding:1px 6px, border-radius:4px
     Sections ## 1, ## 9, ## 11 → grid-column: span 2
 
-[7] RISK HOTSPOT TABLE (full-width, surface bg)
+[9] RISK HOTSPOT TABLE (full-width, surface bg)
   Extract from ## 9. Styled <table> with:
-    thead: bg surface2, text muted uppercase 10px, border-bottom:2px solid #334155
-    tbody rows: alternating bg (surface / surface2); border-bottom:1px solid #263044
+    thead: bg surface2, text muted uppercase 10px, border-bottom:2px solid border color
+    tbody rows: alternating bg; border-bottom:1px solid border
     Columns: No | RU | Equipment/Unit | Risk Driver | Severity badge | Urgency badge | Recommended Action
-    Urgency Critical → red row highlight (bg:#1c0505)
+    Urgency Critical → red row highlight
 
-[8] MANAGEMENT ACTION TABLE (full-width, surface bg)
+[10] MANAGEMENT ACTION TABLE (full-width, surface bg)
   Extract from ## 11. Columns: Isu | RU | Risiko Jika Tidak Ditangani | Aksi | Owner | Timeframe
-  Style same as hotspot table. Priority rows (critical) get left border accent.
+  Priority rows (critical) get red left border accent.
 
-[9] FOOTER BAR
-  bg:#1e293b; border-top:1px solid #334155; padding:14px 32px
+[11] FOOTER BAR
+  bg:#ffffff; border-top:2px solid #e2e8f0; padding:14px 32px
   Left: "Data Quality & Limitation" from ## 12 — truncated to 2 lines, muted 11px
-  Right: confidence level badge + "Generated by Reliability Agent"
+  Right: confidence level badge + "Generated by Reliability Performance & Risk Agent"
 
 ━━━ MICRO-DETAILS ━━━
 - All tables: border-collapse:collapse; width:100%; font-size:12px
@@ -567,10 +614,11 @@ For percentage KPIs, render a slim bar (height:5px; border-radius:3px; backgroun
 - Bullet rows: display:flex; align-items:flex-start; gap:8px; margin-bottom:6px
 - Bullet dot: width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:6px
 - Strong numbers: color:var(--text); font-weight:700
-- Critical numbers: color:#ef4444
-- Warning numbers: color:#eab308
+- Critical numbers: color:#dc2626; font-weight:700
+- Warning numbers: color:#b45309; font-weight:700
 - Scrollable tables: overflow-x:auto wrapper div
-- @media(max-width:900px): KPI grid → repeat(3,1fr); RU grid → repeat(2,1fr)
+- Chart cards: min-height:200px; overflow:hidden
+- @media(max-width:900px): KPI grid → repeat(3,1fr); RU grid → repeat(2,1fr); charts row → 1fr
 - @media(max-width:600px): all grids → 1fr; section grid → 1fr
 
 BAHASA KONTEN: Indonesia.
@@ -596,6 +644,30 @@ Cards: border-radius:14px; padding:20px 24px; border:1px solid var(--border); bo
 Pill: padding 3px 10px; border-radius:20px; font-size:11px; font-weight:700
   Green→bg #dcfce7;color #16a34a;border:1px solid #bbf7d0 | Yellow→bg #fef9c3;color #ca8a04;border:1px solid #fde68a
   Orange→bg #ffedd5;color #ea580c;border:1px solid #fed7aa | Red→bg #fee2e2;color #dc2626;border:1px solid #fecaca
+
+━━━ SVG CHART COMPONENTS (inline, zero dependencies) ━━━
+
+CHART A — Horizontal Bar (compare KPI values, e.g. ICU/Bad Actor trend or multi-metric for this RU):
+  <svg viewBox="0 0 380 [height]" width="100%" style="display:block">
+    For each row: label left (x=0), track rect (x=120,w=220,fill=#e2e8f0), fill rect (x=120,w=[pct*220],fill=[color]), value text right (x=345)
+    Bar height:18px, gap rows at y+=32
+  </svg>
+
+CHART B — Donut Gauge (single % KPI — PAF, PM compliance, absorption):
+  <svg viewBox="0 0 120 120" width="110" height="110">
+    <circle cx="60" cy="60" r="44" fill="none" stroke="#e2e8f0" stroke-width="12"/>
+    <circle cx="60" cy="60" r="44" fill="none" stroke="[color]" stroke-width="12"
+      stroke-dasharray="[pct*276.5] 276.5" stroke-dashoffset="69.1"
+      transform="rotate(-90 60 60)" stroke-linecap="round"/>
+    <text x="60" y="56" text-anchor="middle" font-size="20" font-weight="800" fill="[color]">[val]%</text>
+    <text x="60" y="72" text-anchor="middle" font-size="9" fill="#64748b">[label]</text>
+  </svg>
+  (circumference 2π×44≈276.5; dashoffset 276.5×0.25≈69.1 to start from top)
+
+CHART C — Mini Sparkline (trend 5–7 points, width=120 height=40):
+  Scale points: x evenly spaced 0–120, y map min→36 max→4
+  <polyline points="..." fill="none" stroke="[color]" stroke-width="2" stroke-linejoin="round"/>
+  Last point: <circle r="3" fill="[color]"/>
 
 ━━━ PAGE STRUCTURE ━━━
 
@@ -623,16 +695,22 @@ Pill: padding 3px 10px; border-radius:20px; font-size:11px; font-weight:700
     - Bar: height:3px; bg:#e2e8f0; fill color by status; width proportional (Green=90%, Yellow=65%, Orange=40%, Red=20%)
     - Bottom: "Prioritas Perhatian" — top 2 concerns as highlighted pills
 
-[4] KPI METRICS ROW (8 cards max, grid:repeat(4,1fr) gap:12px, wraps to repeat(4,1fr) then repeat(2,1fr))
+[4] KPI METRICS ROW (8 cards max, grid:repeat(4,1fr) gap:12px)
   Each KPI card (surface):
-    Top: icon (36px rounded square, status-tinted bg, unicode symbol) + trend indicator top-right
+    Top: icon (36px rounded square, status-tinted bg, unicode symbol) + trend indicator (▲▼→) top-right
     Value: 32px, 800 weight, status color
     Progress bar for % KPIs (height:4px)
     Label: 11px muted uppercase
     Sub: comparison text (e.g., "Target: 99.25%") in 11px muted
   KPIs: PAF Primary (%), PAF Secondary (%), ICU Open, Bad Actor Open, Inspection Overdue, PM Compliance (%), WO Stagnant, Maintenance Spend Absorption (%)
 
-[5] TWO-COLUMN ANALYSIS: Leading vs Lagging (side by side, each full card)
+[5] CHARTS ROW (3-column, gap:16px)
+  Col 1 — "PAF & PM Compliance" — two donut gauges (CHART B) side by side in one card:
+    Left donut: PAF % dari ## 2/## 6. Right donut: PM Compliance % dari ## 5.
+  Col 2 — "Maintenance Spend Absorption" — one large donut gauge (CHART B) centered in card + Plan vs Actual numbers below.
+  Col 3 — "ICU Open & Bad Actor" — horizontal bar chart (CHART A) showing ICU Open vs Bad Actor vs Inspection Overdue counts for this RU (bars colored by severity threshold).
+
+[6] TWO-COLUMN ANALYSIS: Leading vs Lagging (side by side, each full card)
   Left — "Leading Indicators" (border-top:3px solid #ca8a04):
     Extract from ## 5. Render each concern as a row card (surface2, border-radius:8px, padding:10px 14px, margin-bottom:8px):
       - Indicator name bold + status badge right-aligned
@@ -641,34 +719,32 @@ Pill: padding 3px 10px; border-radius:20px; font-size:11px; font-weight:700
   Right — "Lagging Indicators" (border-top:3px solid #dc2626):
     Extract from ## 6. Same row card style.
 
-[6] ANALYSIS SECTIONS GRID (2-column, gap:14px)
+[7] ANALYSIS SECTIONS GRID (2-column, gap:14px)
   Sections ## 2, ## 3, ## 4, ## 7, ## 8, ## 10, ## 12
   Section ## 9 (Risk Hotspots) → full width, span 2
   Section ## 11 (Management) → full width, span 2
-  Each card: circle number badge + title + status badge in header; bullet rows in body (same micro-detail as overall)
+  Each card: circle number badge + title + status badge in header; bullet rows in body
 
-[7] EQUIPMENT RISK TABLE (full-width, surface)
+[8] EQUIPMENT RISK TABLE (full-width, surface)
   Title: "Equipment & Asset Kritis — Memerlukan Perhatian Segera"
-  Extract all equipment/tags mentioned in ## 3, ## 6, ## 8, ## 9 as risk items
-  Table columns: No | Tag / Equipment | Unit / Lokasi | Isu Utama | Traffic/Status | Target Penyelesaian | Rekomendasi
-  Row highlight: RED traffic → bg #fee2e2, left-border:3px solid #dc2626
-                 YELLOW → bg #fef9c3, left-border:3px solid #ca8a04
-  Max 12 rows. If no equipment tags: render a "Tidak ada equipment spesifik yang diidentifikasi" empty state.
+  Extract all equipment/tags from ## 3, ## 6, ## 8, ## 9
+  Columns: No | Tag / Equipment | Unit / Lokasi | Isu Utama | Status | Target Penyelesaian | Rekomendasi
+  RED rows → bg #fee2e2, left-border:3px solid #dc2626
+  YELLOW rows → bg #fef9c3, left-border:3px solid #ca8a04
+  Max 12 rows.
 
-[8] MAINTENANCE SPEND PANEL (full-width, 3-column inner grid)
-  Extract from ## 7:
-    Col 1: Plan vs Actual spend card — two large numbers side by side with a delta indicator
-    Col 2: Absorption rate — large % number + progress bar + status label
-    Col 3: Spend effectiveness analysis — 3 bullet points on whether spend is delivering reliability improvement
+[9] MAINTENANCE SPEND PANEL (full-width, 3-column inner grid)
+  Col 1: Plan vs Actual spend — two large numbers + delta indicator
+  Col 2: Absorption rate donut gauge (CHART B, large, 140px)
+  Col 3: Spend effectiveness — 3 bullet points
 
-[9] MANAGEMENT ACTIONS TABLE (full-width)
-  Extract from ## 11:
-  Columns: # | Isu | Risiko Jika Tidak Ditangani | Aksi yang Direkomendasikan | Owner | Timeframe
-  Style: critical rows → red left-border + subtle red bg; medium → yellow left-border
+[10] MANAGEMENT ACTIONS TABLE (full-width)
+  Columns: # | Isu | Risiko | Aksi yang Direkomendasikan | Owner | Timeframe
+  Critical rows → red left-border + #fee2e2 bg; medium → yellow left-border
   th: color #0d9488, bg #f8fafc
 
-[10] FOOTER
-  bg #ffffff; border-top:1px solid #e2e8f0; padding:14px 32px; display:flex; justify-content:space-between
+[11] FOOTER
+  bg #ffffff; border-top:2px solid #e2e8f0; padding:14px 32px; display:flex; justify-content:space-between
   Left: "Data Quality & Limitation" from ## 12 (max 2 lines, muted 11px)
   Right: confidence badge + "Generated by Reliability Performance & Risk Agent"
 
@@ -677,12 +753,13 @@ Pill: padding 3px 10px; border-radius:20px; font-size:11px; font-weight:700
 - Colored dot: width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:7px
 - Red dot: #dc2626 | Yellow: #ca8a04 | Green: #16a34a | Muted: #94a3b8
 - Tables: border-collapse:collapse;width:100%;font-size:12px; th padding:10px 14px; td padding:9px 14px
-- Inline number pills: font-size:11px;font-variant-numeric:tabular-nums;bg:#f1f5f9;color:#0f172a;padding:1px 7px;border-radius:4px;font-weight:700;border:1px solid #e2e8f0
+- Inline number pills: font-size:11px;font-variant-numeric:tabular-nums;background:#f1f5f9;color:#0f172a;padding:1px 7px;border-radius:4px;font-weight:700;border:1px solid #e2e8f0
 - Strong critical values: color:#dc2626;font-weight:700
 - Strong warning values: color:#ca8a04;font-weight:700
 - Strong good values: color:#16a34a;font-weight:700
 - Section labels: font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin-bottom:12px;padding-left:10px;border-left:3px solid #0d9488
-- @media(max-width:900px): KPI grid→repeat(4,1fr); hero right→hidden or below
+- Chart card min-height:180px; overflow:hidden
+- @media(max-width:900px): KPI grid→repeat(4,1fr); charts row→repeat(2,1fr); hero right→below
 - @media(max-width:600px): all grids→1fr
 
 BAHASA KONTEN: Indonesia.

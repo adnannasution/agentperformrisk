@@ -437,6 +437,19 @@
   }
   .src-btn:hover { background: var(--teal-700); }
 
+  /* ── MARKDOWN TABLE ──────────────────────────────────────────────── */
+  .md-table-wrap { overflow-x: auto; margin: 12px 0; border-radius: 8px; border: 1px solid var(--slate-200); }
+  .md-table { border-collapse: collapse; width: 100%; font-size: 12.5px; min-width: 480px; }
+  .md-table th {
+    background: var(--slate-100); color: var(--teal-700);
+    font-weight: 700; text-align: left;
+    padding: 9px 14px; border-bottom: 2px solid var(--slate-200);
+    white-space: nowrap;
+  }
+  .md-table td { padding: 8px 14px; border-bottom: 1px solid var(--slate-100); vertical-align: top; }
+  .md-table tr:last-child td { border-bottom: none; }
+  .md-table tr:hover td { background: var(--slate-50); }
+
   /* ── OUTPUT TABS ─────────────────────────────────────────────── */
   .output-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--slate-200); margin-bottom: 14px; }
   .output-tab {
@@ -1038,6 +1051,26 @@
           .map(line => `<li>${line.replace(/^\d+\.\s*/, '').trim()}</li>`)
           .join('');
         return `<ol>${items}</ol>`;
+      });
+
+      // Render markdown pipe tables
+      s = s.replace(/((?:^\|.+\|\n?)+)/gm, block => {
+        const lines = block.trim().split('\n').filter(l => l.trim());
+        if (lines.length < 2) return block;
+        const isSepar = l => /^\|[\s\-:|]+\|/.test(l);
+        let html = '<div class="md-table-wrap"><table class="md-table">';
+        let inHead = true;
+        for (const line of lines) {
+          if (isSepar(line)) { inHead = false; html += '</thead><tbody>'; continue; }
+          const cells = line.replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+          if (inHead) {
+            html += '<thead><tr>' + cells.map(c => `<th>${c}</th>`).join('') + '</tr>';
+          } else {
+            html += '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+          }
+        }
+        html += '</tbody></table></div>';
+        return html;
       });
 
       s = s.replace(/\n{2,}/g, '</p><p>');

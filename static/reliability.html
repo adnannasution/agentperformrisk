@@ -562,9 +562,13 @@
             <span class="data-chip-icon">⚡</span>
             <div><div class="data-chip-name">Issue PAF</div><div class="data-chip-desc">Detail penyebab kehilangan availability</div></div>
           </div>
-          <div class="data-chip lagging">
+          <div class="data-chip lagging" style="position:relative">
             <span class="data-chip-icon">📈</span>
-            <div><div class="data-chip-name">MTBF / MTTR</div><div class="data-chip-desc">Mean time between & to repair (BOC)</div></div>
+            <div>
+              <div class="data-chip-name">MTBF / MTTR</div>
+              <div class="data-chip-desc">Mean time between & to repair (BOC)</div>
+              <div style="margin-top:3px;font-size:10px;color:#b45309;background:#fef3c7;border:1px solid #fde68a;border-radius:4px;padding:1px 6px;display:inline-block">⚠️ Kolom RU belum terisi — data per RU tidak akurat</div>
+            </div>
           </div>
           <div class="data-chip lagging">
             <span class="data-chip-icon">✅</span>
@@ -577,6 +581,14 @@
           <div class="data-chip lagging">
             <span class="data-chip-icon">🔍</span>
             <div><div class="data-chip-name">RCPS</div><div class="data-chip-desc">Root cause & progress penyelesaian</div></div>
+          </div>
+          <div class="data-chip lagging">
+            <span class="data-chip-icon">💵</span>
+            <div><div class="data-chip-name">Maintenance Spend</div><div class="data-chip-desc">Plan cost vs actual cost per RU & order type (SAP WO)</div></div>
+          </div>
+          <div class="data-chip lagging">
+            <span class="data-chip-icon">🔧</span>
+            <div><div class="data-chip-name">Critical Equipment</div><div class="data-chip-desc">Status corrective & mitigasi equipment kritis per RU</div></div>
           </div>
 
           <div class="info-section-subtitle" style="color:var(--teal-700);margin-top:12px">Leading Indicator</div>
@@ -604,6 +616,16 @@
             <span class="data-chip-icon">📄</span>
             <div><div class="data-chip-name">Laporan Bulanan</div><div class="data-chip-desc">Narasi kontekstual dari upload manual</div></div>
           </div>
+
+          <div class="info-section-subtitle" style="color:#dc2626;margin-top:12px">Data Belum Tersedia</div>
+          <div class="data-chip" style="background:#fef2f2;border:1px solid #fecaca;opacity:.8">
+            <span class="data-chip-icon">🚫</span>
+            <div><div class="data-chip-name" style="color:#dc2626">Operational Availability (OA)</div><div class="data-chip-desc" style="color:#ef4444">Belum ada tabel — analisis OA tidak dapat dilakukan</div></div>
+          </div>
+          <div class="data-chip" style="background:#fef2f2;border:1px solid #fecaca;opacity:.8">
+            <span class="data-chip-icon">🚫</span>
+            <div><div class="data-chip-name" style="color:#dc2626">AIMS KeyPI</div><div class="data-chip-desc" style="color:#ef4444">Belum ada tabel — analisis asset integrity management terbatas</div></div>
+          </div>
         </div>
 
         <!-- KANAN: Output + Mode -->
@@ -612,27 +634,51 @@
 
           <div class="output-chip">
             <div class="output-num">1</div>
-            <div><div class="output-chip-name">Reliability Performance Overview</div><div class="output-chip-desc">Status keseluruhan — membaik, stagnan, atau memburuk</div></div>
+            <div><div class="output-chip-name">Executive Reliability Health Summary</div><div class="output-chip-desc">Scorecard 6 RU — status Green/Yellow/Orange/Red tiap dimensi</div></div>
           </div>
           <div class="output-chip">
             <div class="output-num">2</div>
-            <div><div class="output-chip-name">Trend Direction</div><div class="output-chip-desc">Arah tren PAF, failure frequency, dan backlog WO</div></div>
+            <div><div class="output-chip-name">National Performance Overview</div><div class="output-chip-desc">Gambaran konsolidasi nasional lintas semua RU</div></div>
           </div>
           <div class="output-chip">
             <div class="output-num">3</div>
-            <div><div class="output-chip-name">Leading Indicator Concern</div><div class="output-chip-desc">Sinyal dini yang perlu diwaspadai sebelum failure terjadi</div></div>
+            <div><div class="output-chip-name">RU Performance Review</div><div class="output-chip-desc">Analisis mendalam per kilang: PAF, PM compliance, backlog, bad actor</div></div>
           </div>
           <div class="output-chip">
             <div class="output-num">4</div>
-            <div><div class="output-chip-name">Lagging Indicator Status</div><div class="output-chip-desc">KPI hasil aktual vs target dengan angka konkret</div></div>
+            <div><div class="output-chip-name">Trend Direction</div><div class="output-chip-desc">Arah tren PAF, failure frequency, dan backlog WO</div></div>
           </div>
           <div class="output-chip">
             <div class="output-num">5</div>
-            <div><div class="output-chip-name">Risk Hotspots</div><div class="output-chip-desc">RU / equipment dengan konsentrasi risiko tertinggi</div></div>
+            <div><div class="output-chip-name">Leading Indicator Concern</div><div class="output-chip-desc">Sinyal dini: PM compliance, ICU, RCPS yang perlu diwaspadai</div></div>
           </div>
           <div class="output-chip">
             <div class="output-num">6</div>
-            <div><div class="output-chip-name">Management Implication</div><div class="output-chip-desc">Tindakan konkret yang dibutuhkan manajemen</div></div>
+            <div><div class="output-chip-name">Lagging Indicator Concern</div><div class="output-chip-desc">KPI hasil aktual: MTBF/MTTR, bad actor, IRKAP realisasi</div></div>
+          </div>
+          <div class="output-chip">
+            <div class="output-num">7</div>
+            <div><div class="output-chip-name">Maintenance Spend Effectiveness</div><div class="output-chip-desc">Realisasi vs plan cost, absorption rate per RU dan tipe WO</div></div>
+          </div>
+          <div class="output-chip">
+            <div class="output-num">8</div>
+            <div><div class="output-chip-name">Asset Integrity Management Review</div><div class="output-chip-desc">Status inspeksi, overdue, dan critical equipment per RU</div></div>
+          </div>
+          <div class="output-chip">
+            <div class="output-num">9</div>
+            <div><div class="output-chip-name">Risk Hotspots</div><div class="output-chip-desc">RU / equipment dengan konsentrasi risiko dan failure tertinggi</div></div>
+          </div>
+          <div class="output-chip">
+            <div class="output-num">10</div>
+            <div><div class="output-chip-name">KPI vs Field Signal Mismatch</div><div class="output-chip-desc">Deteksi inkonsistensi antara angka KPI dan kondisi lapangan</div></div>
+          </div>
+          <div class="output-chip">
+            <div class="output-num">11</div>
+            <div><div class="output-chip-name">Management Implication</div><div class="output-chip-desc">Tindakan konkret prioritas yang dibutuhkan manajemen</div></div>
+          </div>
+          <div class="output-chip">
+            <div class="output-num">12</div>
+            <div><div class="output-chip-name">Data Quality & Limitation</div><div class="output-chip-desc">Catatan keterbatasan data yang mempengaruhi akurasi analisis</div></div>
           </div>
 
           <div class="info-section-title" style="margin-top:16px">🔄 Mode Run</div>

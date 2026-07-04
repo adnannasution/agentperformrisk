@@ -159,22 +159,40 @@
     background: var(--slate-50); border: 1px solid var(--slate-200);
     border-radius: 10px; padding: 20px;
     min-height: 240px; max-height: 600px;
-    overflow-y: auto; font-size: 13px; line-height: 1.6; color: var(--slate-700);
+    overflow-y: auto; overflow-x: hidden;
+    font-size: 13px; line-height: 1.6; color: var(--slate-700);
   }
   .output-body.empty {
     display: flex; align-items: center; justify-content: center;
     color: var(--slate-300); font-style: italic; font-size: 14px; min-height: 240px;
   }
+
+  /* Section heading — pill number + label */
   .output-body h2 {
-    font-size: 13px; font-weight: 700; color: var(--teal-700);
-    margin: 16px 0 6px; padding-bottom: 5px;
-    border-bottom: 2px solid var(--teal-100);
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; color: var(--slate-700);
+    margin: 22px 0 8px; padding: 0;
+    border-bottom: none;
   }
   .output-body h2:first-child { margin-top: 0; }
+  .output-body h2::before {
+    content: attr(data-num);
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 20px; padding: 0 5px;
+    background: var(--teal-500); color: #fff;
+    border-radius: 6px; font-size: 10px; font-weight: 800;
+    flex-shrink: 0;
+  }
+  .output-body h2 .h2-title {
+    flex: 1; padding-bottom: 6px;
+    border-bottom: 1.5px solid var(--teal-100);
+  }
+  .output-body h2 .src-btns { flex-shrink: 0; }
+
   .output-body strong { color: var(--slate-800); }
-  .output-body p { margin-bottom: 4px; }
-  .output-body ul, .output-body ol { padding-left: 18px; margin: 4px 0 6px; }
-  .output-body li { margin-bottom: 3px; line-height: 1.55; }
+  .output-body p { margin: 0 0 5px; }
+  .output-body ul, .output-body ol { padding-left: 20px; margin: 4px 0 8px; }
+  .output-body li { margin-bottom: 4px; line-height: 1.6; }
   .output-body li + li { margin-top: 2px; }
 
   /* ── INFO PANEL ──────────────────────────────────────────────── */
@@ -438,7 +456,7 @@
   .src-btn:hover { background: var(--teal-700); }
 
   /* ── MARKDOWN TABLE ──────────────────────────────────────────────── */
-  .md-table-wrap { overflow-x: auto; margin: 12px 0; border-radius: 8px; border: 1px solid var(--slate-200); }
+  .md-table-wrap { overflow-x: auto; margin: 10px 0 14px; border-radius: 8px; border: 1px solid var(--slate-200); max-width: 100%; }
   .md-table { border-collapse: collapse; width: 100%; font-size: 12.5px; min-width: 480px; }
   .md-table th {
     background: var(--slate-100); color: var(--teal-700);
@@ -1018,7 +1036,7 @@
           return `<button class="src-btn" data-key="${src.key}" data-label="${sl}" ` +
                  `onclick="openSourceModal(this.dataset.key,this.dataset.label)">${esc(src.label)}</button>`;
         }).join('');
-        html += `<h2>${esc(seg.num)}. ${esc(seg.title)}<span class="src-btns">${btns}</span></h2>`;
+        html += `<h2 data-num="${esc(seg.num)}"><span class="h2-title">${esc(seg.title)}<span class="src-btns">${btns}</span></span></h2>`;
         continue;
       }
 

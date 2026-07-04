@@ -134,14 +134,24 @@ Fokus tambahan:
 # CONTEXT BUILDER
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _build_context(data: dict) -> str:
+def _filter_ru(rows: list, ru: str) -> list:
+    """Filter list of row dicts to a specific RU name. Pass-through if ru is None."""
+    if not ru:
+        return rows
+    return [r for r in rows if (r.get("ru_name") or "").strip() == ru.strip()]
+
+
+def _build_context(data: dict, ru: str = None) -> str:
+    """Build LLM context string. If ru is set, filter rows to that RU only."""
     parts = []
+    if ru:
+        parts.append(f"[SCOPE: Analisis terfokus pada {ru} saja]\n")
 
     # ── PAF ──────────────────────────────────────────────────────────────────
     paf = data.get("paf", {})
     if paf.get("current"):
         parts.append("=== PAF (Plant Availability Factor) — Data Terkini ===")
-        for r in paf["current"]:
+        for r in _filter_ru(paf["current"], ru):
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | Type: {r.get('type')} | "
                 f"{r.get('target_realisasi')}: {r.get('value')} | "
@@ -151,7 +161,7 @@ def _build_context(data: dict) -> str:
             )
     if paf.get("trend"):
         parts.append("--- Trend PAF Realisasi ---")
-        for r in paf["trend"][:12]:
+        for r in _filter_ru(paf["trend"], ru)[:12]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | "
                 f"Bulan: {r.get('month_update')} | "
@@ -162,7 +172,7 @@ def _build_context(data: dict) -> str:
     issues = data.get("issue_paf", [])
     if issues:
         parts.append("\n=== Issue PAF (Penyebab Kehilangan Availability) ===")
-        for r in issues[:25]:
+        for r in _filter_ru(issues, ru)[:25]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | Type: {r.get('type')} | "
                 f"Tanggal: {r.get('date')} | Issue: {r.get('issue')}"
@@ -172,14 +182,14 @@ def _build_context(data: dict) -> str:
     bad = data.get("bad_actor", {})
     if bad.get("summary"):
         parts.append("\n=== Bad Actor Summary per RU ===")
-        for r in bad["summary"]:
+        for r in _filter_ru(bad["summary"], ru):
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | Total: {r.get('total')} | "
                 f"Open: {r.get('open_count')} | Closed: {r.get('closed_count')}"
             )
     if bad.get("list"):
         parts.append("--- Detail Bad Actor (Open) ---")
-        open_ba = [r for r in bad["list"]
+        open_ba = [r for r in _filter_ru(bad["list"], ru)
                    if any(k in str(r.get("status", "")).lower()
                           for k in ("open", "progress", "inprogress"))]
         for r in open_ba[:15]:
@@ -194,14 +204,14 @@ def _build_context(data: dict) -> str:
     icu = data.get("icu", {})
     if icu.get("summary"):
         parts.append("\n=== ICU (Integrity Concern Unit) — Summary ===")
-        for r in icu["summary"]:
+        for r in _filter_ru(icu["summary"], ru):
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | Total: {r.get('total')} | "
                 f"Open: {r.get('open_count')} | Closed: {r.get('closed_count')}"
             )
     if icu.get("open_list"):
         parts.append("--- ICU Open ---")
-        for r in icu["open_list"][:15]:
+        for r in _filter_ru(icu["open_list"], ru)[:15]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | "
                 f"Tag: {r.get('equipment_tag')} | "
@@ -213,7 +223,7 @@ def _build_context(data: dict) -> str:
     boc = data.get("boc_mtbf", {})
     if boc.get("summary_by_ru"):
         parts.append("\n=== MTBF & MTTR Summary per RU ===")
-        for r in boc["summary_by_ru"]:
+        for r in _filter_ru(boc["summary_by_ru"], ru):
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | "
                 f"Avg MTBF: {r.get('avg_mtbf')} jam | "
@@ -222,7 +232,7 @@ def _build_context(data: dict) -> str:
             )
     if boc.get("low_mtbf_equipment"):
         parts.append("--- Equipment MTBF Terendah ---")
-        for r in boc["low_mtbf_equipment"][:10]:
+        for r in _filter_ru(boc["low_mtbf_equipment"], ru)[:10]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | "
                 f"Equipment: {r.get('equipment_tag')} | "
@@ -234,7 +244,7 @@ def _build_context(data: dict) -> str:
     rcps_list = data.get("rcps", [])
     if rcps_list:
         parts.append("\n=== RCPS (Root Cause & Progress) ===")
-        for r in rcps_list[:12]:
+        for r in _filter_ru(rcps_list, ru)[:12]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('kilang')} | No: {r.get('rcps_no')} | "
                 f"Judul: {r.get('judul_rcps')} | "
@@ -245,7 +255,7 @@ def _build_context(data: dict) -> str:
     rcps_rek = data.get("rcps_rekomendasi", {})
     if rcps_rek.get("traffic_summary"):
         parts.append("\n=== RCPS Rekomendasi — Traffic Summary ===")
-        for r in rcps_rek["traffic_summary"]:
+        for r in _filter_ru(rcps_rek["traffic_summary"], ru):
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('kilang')} | "
                 f"Traffic: {r.get('traffic')} | "
@@ -253,7 +263,7 @@ def _build_context(data: dict) -> str:
             )
     if rcps_rek.get("open_recommendations"):
         parts.append("--- RCPS Rekomendasi Belum Selesai ---")
-        for r in rcps_rek["open_recommendations"][:10]:
+        for r in _filter_ru(rcps_rek["open_recommendations"], ru)[:10]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('kilang')} | "
                 f"Rekomendasi: {r.get('rekomendasi')} | "
@@ -265,7 +275,7 @@ def _build_context(data: dict) -> str:
     irkap = data.get("irkap_summary", {})
     if irkap.get("program_summary"):
         parts.append("\n=== IRKAP Program Summary per RU ===")
-        for r in irkap["program_summary"]:
+        for r in _filter_ru(irkap["program_summary"], ru):
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
                 f"Total: {r.get('total_program')} | "
@@ -276,7 +286,7 @@ def _build_context(data: dict) -> str:
             )
     if irkap.get("actual_summary"):
         parts.append("--- IRKAP Actual Completion ---")
-        for r in irkap["actual_summary"]:
+        for r in _filter_ru(irkap["actual_summary"], ru):
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
                 f"Total: {r.get('total')} | "
@@ -289,7 +299,7 @@ def _build_context(data: dict) -> str:
     crit = data.get("critical_equipment", {})
     if crit.get("traffic_summary"):
         parts.append("\n=== Critical Equipment — Traffic Summary ===")
-        for r in crit["traffic_summary"]:
+        for r in _filter_ru(crit["traffic_summary"], ru):
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
                 f"Red: {r.get('red_count')} | "
@@ -297,7 +307,7 @@ def _build_context(data: dict) -> str:
                 f"Green: {r.get('green_count')}"
             )
 
-    red_items = [r for r in crit.get("primary_secondary", [])
+    red_items = [r for r in _filter_ru(crit.get("primary_secondary", []), ru)
                  if str(r.get("traffic_corrective", "")).upper() == "RED"]
     if red_items:
         parts.append("--- Critical Equipment Status RED ---")
@@ -310,7 +320,7 @@ def _build_context(data: dict) -> str:
                 f"Target: {r.get('target_corrective')}"
             )
 
-    yellow_items = [r for r in crit.get("primary_secondary", [])
+    yellow_items = [r for r in _filter_ru(crit.get("primary_secondary", []), ru)
                     if str(r.get("traffic_corrective", "")).upper() == "YELLOW"]
     if yellow_items:
         parts.append("--- Critical Equipment Status YELLOW ---")
@@ -325,7 +335,7 @@ def _build_context(data: dict) -> str:
     insp = data.get("inspection_overdue", {})
     if insp.get("summary"):
         parts.append("\n=== Inspection Plan — Summary per RU ===")
-        for r in insp["summary"]:
+        for r in _filter_ru(insp["summary"], ru):
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
                 f"Total Plan: {r.get('total_plan')} | "
@@ -335,7 +345,7 @@ def _build_context(data: dict) -> str:
             )
     if insp.get("overdue_list"):
         parts.append("--- Inspection Overdue (Top 10) ---")
-        for r in insp["overdue_list"][:10]:
+        for r in _filter_ru(insp["overdue_list"], ru)[:10]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
                 f"Tag: {r.get('equipment_tag')} | "
@@ -373,7 +383,7 @@ def _build_context(data: dict) -> str:
 
     if sap.get("repeated_equipment"):
         parts.append("\n=== Equipment Notifikasi Berulang (Leading Indicator) ===")
-        for r in sap["repeated_equipment"][:10]:
+        for r in _filter_ru(sap["repeated_equipment"], ru)[:10]:
             parts.append(
                 f"RU: {r.get('ru_name')} | "
                 f"Equipment: {r.get('equipment_tag')} | "
@@ -386,7 +396,7 @@ def _build_context(data: dict) -> str:
 
     if sap.get("stagnant_wo"):
         parts.append("\n=== WO Stagnant (REL, Overdue, Belum Selesai) ===")
-        for r in sap["stagnant_wo"][:10]:
+        for r in _filter_ru(sap["stagnant_wo"], ru)[:10]:
             parts.append(
                 f"RU: {r.get('ru_name')} | "
                 f"WO: {r.get('order_no')} | "
@@ -398,7 +408,7 @@ def _build_context(data: dict) -> str:
 
     if sap.get("critical_backlog"):
         parts.append("\n=== Notifikasi Kritis Tanpa WO (Backlog) ===")
-        for r in sap["critical_backlog"][:10]:
+        for r in _filter_ru(sap["critical_backlog"], ru)[:10]:
             parts.append(
                 f"RU: {r.get('ru_name')} | "
                 f"Notif: {r.get('notification')} | "
@@ -411,7 +421,7 @@ def _build_context(data: dict) -> str:
     # ── MAINTENANCE SPEND ────────────────────────────────────────────────────
     if sap.get("spend_summary"):
         parts.append("\n=== Maintenance Spend Summary per RU ===")
-        for r in sap["spend_summary"]:
+        for r in _filter_ru(sap["spend_summary"], ru):
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('plant')} | "
                 f"Total WO: {r.get('total_wo')} | "
@@ -422,7 +432,7 @@ def _build_context(data: dict) -> str:
 
     if sap.get("spend_by_ru_type"):
         parts.append("--- Spend per RU per Order Type ---")
-        for r in sap["spend_by_ru_type"]:
+        for r in _filter_ru(sap["spend_by_ru_type"], ru):
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('plant')} | "
                 f"Type: {r.get('order_type')} | "
@@ -447,7 +457,7 @@ def _build_context(data: dict) -> str:
 # DASHBOARD HTML PROMPT
 # ─────────────────────────────────────────────────────────────────────────────
 
-_DASHBOARD_SYSTEM = """Anda adalah dashboard HTML generator profesional untuk Reliability Performance & Risk kilang minyak Pertamina.
+_DASHBOARD_SYSTEM_OVERALL = """Anda adalah dashboard HTML generator profesional untuk Reliability Performance & Risk kilang minyak Pertamina.
 
 Berdasarkan hasil analisis yang diberikan, buat sebuah halaman HTML dashboard yang menyajikan informasi secara visual dan ringkas.
 
@@ -458,32 +468,21 @@ ATURAN WAJIB:
 4. TIDAK BOLEH menggunakan library atau file eksternal (tidak ada CDN, tidak ada @import font)
 5. Sertakan angka dan fakta AKTUAL dari analisis — bukan placeholder
 
-STRUKTUR HALAMAN:
-- <header>: Judul "Reliability Dashboard", badge mode (Weekly/Monthly), timestamp, overall health status badge (Green/Yellow/Orange/Red)
-- <section id="kpi">: Row KPI cards (4–6 kolom)
-- <section id="ru-status">: Row RU health status cards (1 per RU, 6 RU)
-- <section id="sections">: Grid 2 kolom untuk section cards (## 1 s.d. ## 12)
+STRUKTUR HALAMAN (Overall — semua RU):
+- <header>: Judul "Reliability Dashboard — Nasional", badge mode (Weekly/Monthly), timestamp, overall health status badge
+- <section id="kpi">: Row 4–6 KPI cards nasional (ICU Open total, PM Compliance %, Inspection Overdue total, Bad Actor Open, WO Stagnant, Critical Backlog)
+- <section id="ru-status">: Row 6 RU health cards — satu per RU (RU II Dumai, RU III Plaju, RU IV Cilacap, RU V Balikpapan, RU VI Balongan, RU VII Kasim); tiap card: nama RU, status badge (Green/Yellow/Orange/Red), 2–3 poin kondisi utama, warna border sesuai status
+- <section id="sections">: Grid 2 kolom — section cards ## 1 s.d. ## 12
 - <footer>: Data Quality & Limitation note
 
-KPI CARDS — ekstrak angka dari analisis:
-- Tampilkan 4–6 KPI paling relevan (ICU Open, PM Compliance %, Inspection Overdue, WO Stagnant, Bad Actor Open, Critical Backlog)
+KPI CARDS:
 - Tiap card: angka besar (30px bold), label, sub-keterangan
-- Warna status:
-  - Baik      → bg #dcfce7, border #bbf7d0, nilai #15803d
-  - Perhatian → bg #fef3c7, border #fde68a, nilai #b45309
-  - Kritis    → bg #fee2e2, border #fecaca, nilai #dc2626
-
-RU STATUS CARDS — satu card per RU:
-- Tampilkan 6 RU: RU II Dumai, RU III Plaju, RU IV Cilacap, RU V Balikpapan, RU VI Balongan, RU VII Kasim
-- Tiap card: nama RU, overall status badge (Green/Yellow/Orange/Red), 2–3 poin singkat kondisi utama
-- Warna card border sesuai status RU
+- Baik → bg #dcfce7, border #bbf7d0, nilai #15803d | Perhatian → bg #fef3c7, border #fde68a, nilai #b45309 | Kritis → bg #fee2e2, border #fecaca, nilai #dc2626
 
 SECTION CARDS (## 1 s.d. ## 12):
-- Header: nomor + judul section + badge 🔴 Kritis / 🟡 Perhatian / 🟢 Baik / ⚪ Data Kurang
-- Badge ditentukan dari kandungan section
-- Isi: 3–5 bullet poin temuan terpenting; sertakan angka aktual; cetak tebal nilai kritis
-- Section ## 1 (Executive Summary) dan ## 9 (Risk Hotspots) → grid-column: span 2
-- Section ## 11 (Management Implication) → grid-column: span 2
+- Header: nomor + judul + badge 🔴 Kritis / 🟡 Perhatian / 🟢 Baik / ⚪ Data Kurang
+- Isi: 3–5 bullet poin terpenting dengan angka aktual; cetak tebal nilai kritis
+- Section ## 1 (Executive Summary), ## 9 (Risk Hotspots), ## 11 (Management Implication) → grid-column: span 2
 
 DESAIN CSS:
 - Background: #f1f5f9; Container max-width: 1200px; margin: auto; padding: 20px 16px
@@ -492,9 +491,57 @@ DESAIN CSS:
 - Header accent (teal): #0d9488; teks gelap: #1e293b; teks muted: #64748b
 - Section grid: grid-template-columns: 1fr 1fr; gap: 14px
 - KPI grid: grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px
-- RU grid: grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px
+- RU grid: grid-template-columns: repeat(3, 1fr); gap: 12px
 - Responsive: @media (max-width:640px) ubah semua grid menjadi 1 kolom
-- Bullet poin padat, tidak perlu banyak whitespace
+
+BAHASA: Indonesia.
+Segera outputkan HANYA kode HTML, tanpa penjelasan lainnya."""
+
+
+_DASHBOARD_SYSTEM_PER_RU = """Anda adalah dashboard HTML generator profesional untuk Reliability Performance & Risk kilang minyak Pertamina.
+
+Berdasarkan hasil analisis yang diberikan, buat sebuah halaman HTML dashboard FOKUS SATU RU yang menyajikan informasi secara visual dan mendalam.
+
+ATURAN WAJIB:
+1. Output HANYA berupa kode HTML mentah, mulai dari <!DOCTYPE html> hingga </html>
+2. JANGAN gunakan markdown code fence (``` atau ```html)
+3. Semua CSS harus inline dalam <style> di dalam <head>
+4. TIDAK BOLEH menggunakan library atau file eksternal (tidak ada CDN, tidak ada @import font)
+5. Sertakan angka dan fakta AKTUAL dari analisis — bukan placeholder
+
+STRUKTUR HALAMAN (Per-RU — satu kilang):
+- <header>: Judul "Reliability Dashboard — [nama RU]", badge mode (Weekly/Monthly), timestamp, status badge RU (Green/Yellow/Orange/Red), 5 dimensi score (Reliability Performance / Leading Indicator / Lagging Indicator / Asset Integrity / Maintenance Spend) masing-masing dengan warna status
+- <section id="kpi">: Row 6–8 KPI cards spesifik RU ini (PAF realisasi vs target, ICU Open, Bad Actor Open, Inspection Overdue, PM Compliance %, WO Stagnant, RCPS RED, Maintenance Spend Absorption %)
+- <section id="sections">: Grid 2 kolom — section cards ## 1 s.d. ## 12 FOKUS pada data RU ini
+- <section id="equipment">: Tabel Equipment Kritis — daftar equipment/tag yang muncul di analisis sebagai risiko tinggi (kolom: Tag/Equipment, Isu, Status, Rekomendasi)
+- <footer>: Data Quality & Limitation note
+
+KPI CARDS:
+- Tiap card: angka besar (30px bold), label, sub-keterangan, warna status
+- Baik → bg #dcfce7, border #bbf7d0, nilai #15803d | Perhatian → bg #fef3c7, border #fde68a, nilai #b45309 | Kritis → bg #fee2e2, border #fecaca, nilai #dc2626
+
+5 DIMENSI SCORE di header:
+- Tampilkan sebagai row chip kecil: label + warna (Green #16a34a / Yellow #b45309 / Orange #ea580c / Red #dc2626 / Grey #64748b)
+- Tentukan dari kandungan analisis section ## 1
+
+SECTION CARDS (## 1 s.d. ## 12):
+- Header: nomor + judul + badge 🔴 Kritis / 🟡 Perhatian / 🟢 Baik / ⚪ Data Kurang
+- Isi: 3–5 bullet poin terpenting dengan angka aktual; cetak tebal nilai kritis
+- Section ## 1 (Executive Summary), ## 9 (Risk Hotspots), ## 11 (Management Implication) → grid-column: span 2
+
+TABEL EQUIPMENT KRITIS:
+- Ekstrak dari section ## 3, ## 6, ## 8, ## 9 — equipment/tag yang disebut sebagai masalah
+- Max 10 baris; kolom: Tag/Equipment | Isu | Status/Traffic | Rekomendasi
+- Row merah jika status RED/kritis; kuning jika YELLOW/perhatian
+
+DESAIN CSS:
+- Background: #f1f5f9; Container max-width: 1100px; margin: auto; padding: 20px 16px
+- Card: background #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,.05)
+- Font: system-ui, -apple-system, Arial, sans-serif; base 13px; line-height 1.55
+- Header accent (teal): #0d9488; teks gelap: #1e293b; teks muted: #64748b
+- Section grid: grid-template-columns: 1fr 1fr; gap: 14px
+- KPI grid: grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px
+- Responsive: @media (max-width:640px) ubah semua grid menjadi 1 kolom
 
 BAHASA: Indonesia.
 Segera outputkan HANYA kode HTML, tanpa penjelasan lainnya."""
@@ -517,18 +564,31 @@ def _extract_html(raw: str) -> str:
 # RUN AGENT
 # ─────────────────────────────────────────────────────────────────────────────
 
-def run_reliability_agent(mode: str = "weekly") -> dict:
+RU_NAMES = [
+    "RU II Dumai",
+    "RU III Plaju",
+    "RU IV Cilacap",
+    "RU V Balikpapan",
+    "RU VI Balongan",
+    "RU VII Kasim",
+]
+
+
+def run_reliability_agent(mode: str = "weekly", ru: str = None) -> dict:
     """
     Jalankan Reliability Performance & Risk Agent.
 
     Args:
         mode: 'weekly' atau 'monthly'
+        ru:   Nama RU (misal 'RU II Dumai') atau None untuk overall
 
     Returns:
-        dict dengan keys: content, mode, status
+        dict dengan keys: content, dashboard_html, mode, ru, status
     """
     if mode not in ("weekly", "monthly"):
         raise ValueError(f"mode harus 'weekly' atau 'monthly', bukan '{mode}'")
+    if ru and ru not in RU_NAMES:
+        raise ValueError(f"ru tidak dikenal: '{ru}'")
 
     # 1. Ambil semua data dari DB
     try:
@@ -536,23 +596,26 @@ def run_reliability_agent(mode: str = "weekly") -> dict:
     except Exception as e:
         raise RuntimeError(f"Gagal mengambil data dari database: {e}")
 
-    # 2. Build konteks
+    # 2. Build konteks (filter per RU jika ada)
     try:
-        context = _build_context(data)
+        context = _build_context(data, ru=ru)
     except Exception as e:
         raise RuntimeError(f"Gagal membangun konteks: {e}")
 
     # 3. Pilih system prompt
     suffix = _WEEKLY_SUFFIX if mode == "weekly" else _MONTHLY_SUFFIX
     system = _BASE_SYSTEM + suffix
+    if ru:
+        system += f"\n\nFOKUS ANALISIS: Hanya analisis {ru}. Semua section tetap diisi namun terfokus pada data {ru}."
 
     # 4. Build user message
     label = "Weekly Performance Review" if mode == "weekly" else "Monthly Reliability Health Review"
+    scope_label = f"{ru} — " if ru else ""
     user_msg = (
         f"Berikut adalah data reliability kilang yang perlu dianalisis:\n\n"
         f"{context}\n\n"
         f"Berikan analisis reliability lengkap sesuai format yang ditentukan.\n"
-        f"Mode: {label}"
+        f"Mode: {scope_label}{label}"
     )
 
     # 5. Call LLM — analisis
@@ -564,13 +627,15 @@ def run_reliability_agent(mode: str = "weekly") -> dict:
 
     # 6. Call LLM — generate HTML dashboard dari hasil analisis
     label = "Weekly" if mode == "weekly" else "Monthly"
+    dash_system = _DASHBOARD_SYSTEM_PER_RU if ru else _DASHBOARD_SYSTEM_OVERALL
+    scope_label = f"{ru} — " if ru else ""
     dashboard_user_msg = (
-        f"Buat HTML dashboard dari hasil analisis reliability {label} berikut:\n\n"
+        f"Buat HTML dashboard dari hasil analisis reliability {scope_label}{label} berikut:\n\n"
         f"{analysis_content}"
     )
     try:
         dashboard_response = llm.invoke([
-            {"role": "system", "content": _DASHBOARD_SYSTEM},
+            {"role": "system", "content": dash_system},
             {"role": "user",   "content": dashboard_user_msg},
         ])
         dashboard_html = _extract_html(dashboard_response.content)
@@ -581,5 +646,6 @@ def run_reliability_agent(mode: str = "weekly") -> dict:
         "content":        analysis_content,
         "dashboard_html": dashboard_html,
         "mode":           mode,
+        "ru":             ru,
         "status":         "success",
     }

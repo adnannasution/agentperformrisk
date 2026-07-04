@@ -428,23 +428,6 @@
   .src-loading{ color: var(--teal-600); }
 
   /* ── INDICATOR CHIPS (angka/% yang bisa diklik) ─────────────── */
-  .indicator-chip {
-    display: inline-flex; align-items: center; gap: 1px;
-    background: var(--teal-50); border: 1px solid var(--teal-200);
-    border-radius: 4px; padding: 1px 5px; cursor: pointer;
-    color: var(--teal-700); font-weight: 600;
-    transition: background .15s, border-color .15s;
-    font-size: inherit; white-space: nowrap; line-height: inherit;
-    text-decoration: none;
-  }
-  .indicator-chip:hover {
-    background: var(--teal-100); border-color: var(--teal-500);
-    color: var(--teal-800);
-  }
-  .indicator-chip sup {
-    font-size: 8px; line-height: 1; opacity: .6; margin-left: 1px;
-  }
-
   /* ── SECTION SOURCE BUTTONS (di header h2) ──────────────────── */
   .src-btns {
     display: inline-flex; flex-wrap: wrap; gap: 4px;
@@ -974,41 +957,7 @@
     ],
   };
 
-  // Bungkus angka/% dan tag equipment dengan chip yang bisa diklik
-  // Mapping keyword → source key khusus untuk angka jumlah
-  const COUNT_KEYWORD_MAP = [
-    { re: /\b(\d{1,4})\s+(ICU)\b/gi,                              key: 'icu',       label: 'ICU' },
-    { re: /\b(\d{1,4})\s+(bad\s*actor)\b/gi,                      key: 'bad_actor', label: 'Bad Actor' },
-    { re: /\b(\d{1,4})\s+(RCPS)\b/gi,                             key: 'rcps',      label: 'RCPS' },
-    { re: /\b(\d{1,4})\s+(WO|work\s*order)\b/gi,                  key: 'sap_wo',    label: 'SAP WO' },
-    { re: /\b(\d{1,4})\s+(notifikasi|notif)\b/gi,                 key: 'sap_notif', label: 'SAP Notif' },
-    { re: /\b(\d{1,4})\s+(inspeksi|inspection|overdue)\b/gi,      key: 'inspection',label: 'Inspection' },
-    { re: /\b(\d{1,4})\s+(program|IRKAP)\b/gi,                    key: 'irkap',     label: 'IRKAP' },
-    { re: /\b(\d{1,4})\s+(equipment|peralatan|kritis)\b/gi,       key: 'critical_eqp', label: 'Critical Eqp' },
-    { re: /\b(\d{1,4})\s+(failure|kegagalan|breakdown|BOC)\b/gi,  key: 'boc',       label: 'BOC / MTBF' },
-  ];
-
-  function wrapIndicators(s, sectionNum) {
-    const srcs = SECTION_SOURCES[sectionNum];
-    if (!srcs || !srcs.length) return s;
-    const pk = srcs[0].key;
-    const pl = (srcs[0].label || '').replace(/"/g, '&quot;');
-
-    const makeChip = (m, key, label) => {
-      const k = key  || pk;
-      const l = (label || srcs[0].label || '').replace(/"/g, '&quot;');
-      return `<span class="indicator-chip" data-key="${k}" data-label="${l}" ` +
-             `onclick="openSourceModal(this.dataset.key,this.dataset.label)" ` +
-             `title="Lihat data: ${l}">${m}<sup>↗</sup></span>`;
-    };
-
-    // Angka jumlah dengan keyword spesifik → sumber data yang sesuai (DB row count)
-    for (const { re, key, label } of COUNT_KEYWORD_MAP) {
-      s = s.replace(re, m => makeChip(m, key, label));
-    }
-
-    return s;
-  }
+  function wrapIndicators(s) { return s; }
 
   function renderMd(text) {
     // Pecah teks berdasarkan heading section ## N. atau # N. (LLM kadang pakai 1 atau 2 hash)
@@ -1046,7 +995,6 @@
       let s = seg.text
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-      if (seg.section) s = wrapIndicators(s, seg.section);
 
       s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 

@@ -10,7 +10,7 @@ from flask import Blueprint, request, jsonify, send_from_directory
 
 from docx import Document
 from reliability_agent import run_reliability_agent
-from reliability_data import save_laporan_bulanan, ensure_reliability_schema, get_source_rows
+from reliability_data import save_laporan_bulanan, ensure_reliability_schema, get_source_rows, get_dashboard_data
 from db import (
     save_reliability_output,
     fetch_reliability_outputs,
@@ -200,6 +200,16 @@ def get_source_data(source_key):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+
+@reliability_bp.route("/reliability/dashboard-stats", methods=["GET"])
+def get_dashboard_stats():
+    """Kembalikan data agregasi untuk infografis dashboard (live dari DB)."""
+    try:
+        data = get_dashboard_data()
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @reliability_bp.route("/reliability/last-report", methods=["GET"])

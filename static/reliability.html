@@ -475,13 +475,68 @@
   .dashboard-body    { display: none; }
   .dashboard-body.show { display: block; }
 
-  .dashboard-frame {
-    width: 100%; border: none; border-radius: 8px;
-    display: block; min-height: 520px;
-    background: var(--slate-50);
-  }
   .dashboard-loading { padding: 32px 0; text-align: center; color: var(--slate-400); font-size: 13px; }
   .dashboard-empty   { padding: 48px 16px; text-align: center; color: var(--slate-300); font-size: 14px; font-style: italic; }
+
+  /* ── INFOGRAPHIC DASHBOARD ───────────────────────────────────── */
+  .dash-wrap { padding: 4px 0 8px; }
+  .dash-hdr  { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .dash-hdr-title { font-size:13px; font-weight:700; color:var(--slate-600); }
+  .dash-refresh {
+    font-size:11px; padding:5px 12px; border:1px solid var(--slate-200);
+    background:#fff; border-radius:8px; cursor:pointer; color:var(--slate-500);
+    font-family:inherit; font-weight:600; transition:all .15s;
+  }
+  .dash-refresh:hover { border-color:var(--teal-400); color:var(--teal-700); }
+
+  /* KPI tiles */
+  .kpi-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:16px; }
+  @media(max-width:900px){ .kpi-grid { grid-template-columns:repeat(3,1fr); } }
+  .kpi-tile {
+    background:#fff; border:1px solid var(--slate-200); border-radius:10px;
+    padding:14px 12px 12px; text-align:center; position:relative; overflow:hidden;
+  }
+  .kpi-tile::before {
+    content:''; position:absolute; inset:0 0 auto 0; height:3px;
+    background:var(--kpi-color, var(--teal-500));
+  }
+  .kpi-val  { font-size:26px; font-weight:800; color:var(--kpi-color, var(--slate-700)); line-height:1; margin:4px 0; }
+  .kpi-lbl  { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--slate-400); }
+  .kpi-sub  { font-size:10px; color:var(--slate-300); margin-top:2px; }
+  .kpi-tile.warn  { --kpi-color:#d97706; }
+  .kpi-tile.crit  { --kpi-color:#dc2626; }
+  .kpi-tile.good  { --kpi-color:#16a34a; }
+  .kpi-tile.info  { --kpi-color:#0d9488; }
+  .kpi-tile.blue  { --kpi-color:#6366f1; }
+  .kpi-tile.slate { --kpi-color:#64748b; }
+
+  /* chart rows */
+  .dash-row       { display:grid; gap:12px; margin-bottom:12px; }
+  .dash-row-2     { grid-template-columns:1fr 1fr; }
+  .dash-row-3     { grid-template-columns:2fr 1fr; }
+  .dash-row-full  { grid-template-columns:1fr; }
+  @media(max-width:720px){ .dash-row-2,.dash-row-3 { grid-template-columns:1fr; } }
+
+  .chart-card {
+    background:#fff; border:1px solid var(--slate-200); border-radius:10px; padding:14px 16px;
+    overflow:hidden;
+  }
+  .chart-title { font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--slate-500); margin-bottom:12px; }
+  .chart-svg   { width:100%; display:block; overflow:visible; }
+
+  /* tooltip */
+  .dash-tip {
+    position:fixed; background:rgba(30,41,59,.93); color:#fff;
+    font-size:11px; padding:5px 10px; border-radius:6px; pointer-events:none;
+    display:none; z-index:999; max-width:200px; line-height:1.4;
+    font-family:'Segoe UI',system-ui,sans-serif;
+  }
+
+  /* legend row */
+  .legend-row { display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:8px; }
+  .legend-item { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--slate-500); }
+  .legend-dot  { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -567,8 +622,9 @@
         Jalankan agent untuk melihat hasil analisis.
       </div>
       <div class="dashboard-body" id="dashboardBody">
-        <div class="dashboard-empty">📊 Jalankan agent terlebih dahulu, lalu klik tab Dashboard untuk melihat visualisasi data.</div>
+        <div class="dashboard-empty">📊 Klik tab Dashboard untuk memuat infografis live dari database.</div>
       </div>
+      <div class="dash-tip" id="dashTip"></div>
     </div>
   </div>
 
@@ -853,15 +909,8 @@
   }
   function showMsg(el, type, text) { el.className=`upload-msg ${type}`; el.textContent=text; }
 
-  // ── Apply dashboard HTML ────────────────────────────────────────────────────
-  function _applyDashboard(html) {
-    const db = document.getElementById('dashboardBody');
-    if (html) {
-      db.innerHTML = `<iframe srcdoc="${html.replace(/"/g,'&quot;')}" style="width:100%;height:700px;border:none;border-radius:8px"></iframe>`;
-    } else {
-      db.innerHTML = '<div class="dashboard-empty">📊 Jalankan agent terlebih dahulu, lalu klik tab Dashboard untuk melihat visualisasi data.</div>';
-    }
-  }
+  // ── Dashboard: no-op (LLM dashboard_html no longer used) ───────────────────
+  function _applyDashboard(html) { /* infographic is always live from DB */ }
 
   // ── Run Agent ───────────────────────────────────────────────────────────────
   async function runAgent() {
@@ -1154,18 +1203,11 @@
     } else {
       outputBody.classList.add('hide');
       dashBody.classList.add('show');
-      // use cached dashboard if available, else fetch from API
-      const cached = ruResults[_ruKey()];
-      if (cached && cached.dashboard_html) {
-        _applyDashboard(cached.dashboard_html);
-        _dashLoaded = true;
-      } else {
-        loadDashboard();
-      }
+      loadDashboard();
     }
   }
 
-  // ── Dashboard ────────────────────────────────────────────────────────────
+  // ── Infographic Dashboard ─────────────────────────────────────────────────
   function refreshDashboard() {
     _dashLoaded = false;
     if (activeOutputTab === 'dashboard') loadDashboard();
@@ -1174,37 +1216,293 @@
   async function loadDashboard() {
     if (_dashLoaded) return;
     const body = document.getElementById('dashboardBody');
-    if (!currentOutputId) {
-      body.innerHTML = '<div class="dashboard-empty">📊 Jalankan agent terlebih dahulu untuk melihat dashboard.</div>';
-      return;
-    }
-    body.innerHTML = '<div class="dashboard-loading">⏳ Memuat dashboard dari hasil analisis...</div>';
+    body.innerHTML = '<div class="dashboard-loading">⏳ Memuat infografis dari database...</div>';
     try {
-      const res  = await fetch(`/reliability/history/${currentOutputId}`);
+      const res  = await fetch('/reliability/dashboard-stats');
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Gagal memuat');
-      const html = data.data.dashboard_html;
-      if (!html || html.trim().length < 50) {
-        body.innerHTML = '<div class="dashboard-empty">⚠️ Dashboard belum tersedia untuk output ini.<br>Jalankan agent ulang untuk generate dashboard baru.</div>';
-        return;
-      }
-      body.innerHTML = '';
-      const iframe = document.createElement('iframe');
-      iframe.className = 'dashboard-frame';
-      iframe.sandbox   = 'allow-scripts';
-      body.appendChild(iframe);
-      iframe.srcdoc = html;
-      // auto-resize iframe setelah konten dimuat
-      iframe.onload = () => {
-        try {
-          const h = iframe.contentDocument.documentElement.scrollHeight;
-          if (h > 200) iframe.style.minHeight = h + 'px';
-        } catch(_) {}
-      };
       _dashLoaded = true;
+      body.innerHTML = buildInfographic(data.data);
+      // attach tooltip
+      initDashTooltips();
     } catch(e) {
       body.innerHTML = `<div class="dashboard-empty">❌ ${esc(e.message)}</div>`;
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INFOGRAPHIC BUILDER — pure SVG/HTML from live DB data
+  // ═══════════════════════════════════════════════════════════════════════════
+  const C = {
+    teal:   '#0d9488', amber: '#d97706', red:  '#dc2626',
+    green:  '#16a34a', indigo:'#6366f1', slate:'#94a3b8',
+    tealL:  '#99f6e4', amberL:'#fde68a', redL: '#fecaca',
+    greenL: '#bbf7d0', grid:  '#f1f5f9', axis: '#cbd5e1',
+    txt:    '#334155', muted: '#94a3b8',
+  };
+
+  function fmt(n) { return Number(n||0).toLocaleString('id-ID'); }
+  function pct(a,b){ return b ? Math.round(a/b*100) : 0; }
+
+  // horizontal bar chart (SVG) — returns SVG string
+  function hBar(rows, valKey, labelKey, opts={}) {
+    const { color=C.teal, maxW=300, rowH=26, fontSize=11, showVal=true } = opts;
+    const vals  = rows.map(r => parseFloat(r[valKey]||0));
+    const max   = Math.max(...vals, 1);
+    const W     = maxW, H = rows.length * rowH + 4;
+    const lblW  = 72;
+    let bars = '';
+    rows.forEach((r, i) => {
+      const v   = parseFloat(r[valKey]||0);
+      const bw  = Math.round((v/max)*W*0.72);
+      const y   = i * rowH + 2;
+      const lbl = String(r[labelKey]||'').replace(/RU /,'').substring(0,12);
+      bars += `<text x="${lblW-4}" y="${y+rowH*.65}" text-anchor="end" font-size="${fontSize}" fill="${C.muted}">${esc(lbl)}</text>`;
+      bars += `<rect x="${lblW}" y="${y+4}" width="${bw}" height="${rowH-8}" rx="3" fill="${color}"
+        data-tip="${esc(String(r[labelKey]||''))}: ${fmt(v)}" class="dash-bar"/>`;
+      if (showVal && v > 0) bars += `<text x="${lblW+bw+5}" y="${y+rowH*.65}" font-size="${fontSize}" fill="${C.txt}">${fmt(v)}</text>`;
+    });
+    return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" style="height:${H}px">${bars}</svg>`;
+  }
+
+  // grouped bar (2 series) — returns SVG string
+  function hBarGrouped(rows, keys, colors, labelKey, opts={}) {
+    const { maxW=300, rowH=36, fontSize=11 } = opts;
+    const allVals = rows.flatMap(r => keys.map(k => parseFloat(r[k]||0)));
+    const max  = Math.max(...allVals, 1);
+    const W    = maxW, lblW = 72, barH = (rowH-10) / keys.length - 1;
+    const H    = rows.length * rowH + 4;
+    let bars = '';
+    rows.forEach((r, i) => {
+      const y = i * rowH + 2;
+      const lbl = String(r[labelKey]||'').replace(/RU /,'').substring(0,12);
+      bars += `<text x="${lblW-4}" y="${y+rowH*.5}" text-anchor="end" font-size="${fontSize}" fill="${C.muted}">${esc(lbl)}</text>`;
+      keys.forEach((k, ki) => {
+        const v  = parseFloat(r[k]||0);
+        const bw = Math.round((v/max)*W*0.70);
+        const by = y + 5 + ki*(barH+1);
+        bars += `<rect x="${lblW}" y="${by}" width="${bw}" height="${barH}" rx="2" fill="${colors[ki]}"
+          data-tip="${esc(String(r[labelKey]||''))} ${k}: ${fmt(v)}" class="dash-bar"/>`;
+        if (v > 0) bars += `<text x="${lblW+bw+4}" y="${by+barH*.8}" font-size="10" fill="${C.txt}">${fmt(v)}</text>`;
+      });
+    });
+    return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" style="height:${H}px">${bars}</svg>`;
+  }
+
+  // stacked bar chart (SVG)
+  function hBarStacked(rows, keys, colors, labels, labelKey, opts={}) {
+    const { maxW=300, rowH=28, fontSize=11 } = opts;
+    const totals = rows.map(r => keys.reduce((s,k) => s+parseFloat(r[k]||0), 0));
+    const max    = Math.max(...totals, 1);
+    const W = maxW, lblW = 72, H = rows.length * rowH + 4;
+    let bars = '';
+    rows.forEach((r, i) => {
+      const total = totals[i];
+      const y  = i*rowH + 2;
+      const lbl = String(r[labelKey]||'').replace(/RU /,'').replace(/refinery_unit /i,'').substring(0,12);
+      bars += `<text x="${lblW-4}" y="${y+rowH*.65}" text-anchor="end" font-size="${fontSize}" fill="${C.muted}">${esc(lbl)}</text>`;
+      let x = lblW, maxBarW = W*0.72;
+      keys.forEach((k, ki) => {
+        const v  = parseFloat(r[k]||0);
+        const bw = total > 0 ? Math.round((v/max)*maxBarW) : 0;
+        if (bw > 0) {
+          bars += `<rect x="${x}" y="${y+4}" width="${bw}" height="${rowH-8}" rx="${ki===0?3:0}" fill="${colors[ki]}"
+            data-tip="${esc(lbl)} — ${labels[ki]}: ${fmt(v)} / Total: ${fmt(total)}" class="dash-bar"/>`;
+        }
+        x += bw;
+      });
+      if (total > 0) bars += `<text x="${x+5}" y="${y+rowH*.65}" font-size="${fontSize}" fill="${C.txt}">${fmt(total)}</text>`;
+    });
+    return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" style="height:${H}px">${bars}</svg>`;
+  }
+
+  // donut chart (SVG)
+  function donut(slices, r=52, opts={}) {
+    const { size=120, showTotal=true } = opts;
+    const total = slices.reduce((s,x) => s + x.val, 0);
+    const cx = size/2, cy = size/2;
+    let svg = `<svg class="chart-svg" viewBox="0 0 ${size} ${size}" style="width:${size}px;height:${size}px">`;
+    let angle = -90;
+    slices.forEach(sl => {
+      if (!sl.val || total===0) return;
+      const deg  = (sl.val/total)*360;
+      const rad  = a => a * Math.PI/180;
+      const x1   = cx + r*Math.cos(rad(angle));
+      const y1   = cy + r*Math.sin(rad(angle));
+      const x2   = cx + r*Math.cos(rad(angle+deg));
+      const y2   = cy + r*Math.sin(rad(angle+deg));
+      const large= deg > 180 ? 1 : 0;
+      svg += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z"
+        fill="${sl.color}" data-tip="${esc(sl.label)}: ${fmt(sl.val)} (${pct(sl.val,total)}%)" class="dash-bar"/>`;
+      angle += deg;
+    });
+    // hole
+    svg += `<circle cx="${cx}" cy="${cy}" r="${r*0.52}" fill="#fff"/>`;
+    if (showTotal && total > 0) {
+      svg += `<text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="15" font-weight="800" fill="${C.txt}">${fmt(total)}</text>`;
+      svg += `<text x="${cx}" y="${cy+12}" text-anchor="middle" font-size="9" fill="${C.muted}">TOTAL</text>`;
+    }
+    svg += '</svg>';
+    return svg;
+  }
+
+  // gauge arc (0–100%)
+  function gauge(pctVal, color=C.teal, opts={}) {
+    const { size=120, label='' } = opts;
+    const cx=size/2, cy=size*.65, R=size*.38;
+    const deg = Math.min(pctVal,100)/100 * 180;
+    const rad = a => a * Math.PI/180;
+    const bx  = cx - R, by = cy;
+    const ex  = cx + R*Math.cos(rad(180-deg));
+    const ey  = cy - R*Math.sin(rad(180-deg));
+    let svg = `<svg class="chart-svg" viewBox="0 0 ${size} ${size*.75}" style="width:${size}px;height:${size*.75}px">`;
+    svg += `<path d="M${bx},${by} A${R},${R} 0 0,1 ${cx+R},${by}" stroke="${C.grid}" stroke-width="10" fill="none" stroke-linecap="round"/>`;
+    svg += `<path d="M${bx},${by} A${R},${R} 0 0,1 ${ex},${ey}" stroke="${color}" stroke-width="10" fill="none" stroke-linecap="round"/>`;
+    svg += `<text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="18" font-weight="800" fill="${color}">${pctVal}%</text>`;
+    if (label) svg += `<text x="${cx}" y="${cy+12}" text-anchor="middle" font-size="9" fill="${C.muted}">${esc(label)}</text>`;
+    svg += '</svg>';
+    return svg;
+  }
+
+  function legend(items) {
+    return '<div class="legend-row">' + items.map(it =>
+      `<div class="legend-item"><div class="legend-dot" style="background:${it.color}"></div>${esc(it.label)}</div>`
+    ).join('') + '</div>';
+  }
+
+  function kpiTile(val, lbl, cls, sub='') {
+    return `<div class="kpi-tile ${cls}">
+      <div class="kpi-lbl">${lbl}</div>
+      <div class="kpi-val">${val}</div>
+      ${sub ? `<div class="kpi-sub">${sub}</div>` : ''}
+    </div>`;
+  }
+
+  function chartCard(title, innerHtml, legendItems=[]) {
+    return `<div class="chart-card">
+      <div class="chart-title">${title}</div>
+      ${innerHtml}
+      ${legendItems.length ? legend(legendItems) : ''}
+    </div>`;
+  }
+
+  function buildInfographic(d) {
+    const kpi = d.kpi || {};
+    const pmPct = parseFloat(kpi.pm_compliance_pct||0);
+    const pmColor = pmPct >= 80 ? C.green : pmPct >= 60 ? C.amber : C.red;
+
+    // KPI row
+    const kpiRow = `<div class="kpi-grid">
+      ${kpiTile(fmt(kpi.icu_open),          'ICU Open',           'crit')}
+      ${kpiTile(fmt(kpi.bad_actor_open),     'Bad Actor Open',     'warn')}
+      ${kpiTile(fmt(kpi.inspection_overdue), 'Inspection Overdue', 'crit')}
+      ${kpiTile(pmPct+'%',                   'PM Compliance',      pmPct>=80?'good':pmPct>=60?'warn':'crit', 'PTO3')}
+      ${kpiTile(fmt(kpi.rcps_red),           'RCPS RED',           'crit')}
+      ${kpiTile(fmt(kpi.stagnant_wo),        'Stagnant WO',        'slate')}
+    </div>`;
+
+    // PAF chart
+    const pafRows = (d.paf_per_ru||[]).filter(r=>r.ru);
+    const pafChart = pafRows.length ? chartCard(
+      'PAF — Realisasi vs Target per RU',
+      hBarGrouped(pafRows, ['realisasi','target'], [C.teal, C.amberL], 'ru', {rowH:38}),
+      [{color:C.teal,label:'Realisasi'},{color:C.amber,label:'Target'}]
+    ) : '';
+
+    // ICU per RU
+    const icuRows = (d.icu_per_ru||[]).filter(r=>r.ru);
+    const icuChart = icuRows.length ? chartCard(
+      'ICU Open per RU',
+      hBar(icuRows, 'open_count', 'ru', {color:C.red}),
+    ) : '';
+
+    // RCPS traffic donut
+    const rcpsSlices = (d.rcps_traffic||[]).map(r => ({
+      val:   parseInt(r.count||0),
+      label: r.traffic,
+      color: r.traffic==='Red'?C.red : r.traffic==='Yellow'?C.amber : r.traffic==='Green'?C.green : C.slate,
+    }));
+    const rcpsChart = rcpsSlices.length ? chartCard(
+      'RCPS Traffic',
+      `<div style="display:flex;justify-content:center">${donut(rcpsSlices)}</div>`,
+      rcpsSlices.map(s=>({color:s.color, label:`${s.label} (${fmt(s.val)})`}))
+    ) : '';
+
+    // Bad Actor donut
+    const ba = d.bad_actor_summary || {};
+    const baSlices = [
+      {val:parseInt(ba.open_count||0),   label:'Open',   color:C.red},
+      {val:parseInt(ba.closed_count||0), label:'Closed', color:C.green},
+    ].filter(s=>s.val>0);
+    const baChart = baSlices.length ? chartCard(
+      'Bad Actor Status',
+      `<div style="display:flex;justify-content:center">${donut(baSlices, 48, {size:110})}</div>`,
+      baSlices.map(s=>({color:s.color, label:`${s.label} (${fmt(s.val)})`}))
+    ) : '';
+
+    // PM compliance gauge
+    const pmChart = chartCard(
+      'PM Compliance (PTO3)',
+      `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        ${gauge(pmPct, pmColor, {size:130, label:'Completion Rate'})}
+        <div style="font-size:11px;color:${C.muted}">
+          ${fmt(d.pm_compliance?.completed_pm||0)} / ${fmt(d.pm_compliance?.total_pm||0)} WO selesai
+        </div>
+      </div>`
+    );
+
+    // IRKAP stacked
+    const irkRows = (d.irkap_per_ru||[]).filter(r=>r.ru);
+    const irkChart = irkRows.length ? chartCard(
+      'IRKAP Status per RU',
+      hBarStacked(irkRows, ['on_track','delay','carry_over'],
+        [C.green, C.amber, C.indigo],
+        ['On Track','Delay','Carry Over'], 'ru'),
+      [{color:C.green,label:'On Track'},{color:C.amber,label:'Delay'},{color:C.indigo,label:'Carry Over'}]
+    ) : '';
+
+    // BOC MTBF per RU
+    const bocRows = (d.boc_per_ru||[]).filter(r=>r.ru && parseFloat(r.avg_mtbf)>0);
+    const bocChart = bocRows.length ? chartCard(
+      'BOC — Avg MTBF per RU (jam)',
+      hBar(bocRows, 'avg_mtbf', 'ru', {color:C.indigo, showVal:true}),
+    ) : '';
+
+    // Inspection overdue per RU
+    const insRows = (d.inspection_per_ru||[]).filter(r=>r.ru && parseInt(r.overdue)>0);
+    const insChart = insRows.length ? chartCard(
+      'Inspection Overdue per RU',
+      hBar(insRows, 'overdue', 'ru', {color:C.amber}),
+    ) : '';
+
+    return `<div class="dash-wrap">
+      <div class="dash-hdr">
+        <span class="dash-hdr-title">📊 Reliability Infographic — Live Data</span>
+        <button class="dash-refresh" onclick="_dashLoaded=false;loadDashboard()">↻ Refresh</button>
+      </div>
+      ${kpiRow}
+      <div class="dash-row dash-row-3">${pafChart}${rcpsChart}</div>
+      <div class="dash-row dash-row-3">${icuChart}${baChart}</div>
+      <div class="dash-row dash-row-2">${irkChart}${bocChart}</div>
+      <div class="dash-row dash-row-3">${insChart}${pmChart}</div>
+    </div>`;
+  }
+
+  function initDashTooltips() {
+    const tip = document.getElementById('dashTip');
+    document.querySelectorAll('.dash-bar').forEach(el => {
+      el.addEventListener('mouseenter', e => {
+        const t = el.getAttribute('data-tip');
+        if (!t) return;
+        tip.textContent = t;
+        tip.style.display = 'block';
+      });
+      el.addEventListener('mousemove', e => {
+        tip.style.left = (e.clientX+14)+'px';
+        tip.style.top  = (e.clientY-28)+'px';
+      });
+      el.addEventListener('mouseleave', () => { tip.style.display='none'; });
+    });
   }
 
   loadHistory('');

@@ -1069,7 +1069,8 @@
     document.body.style.overflow = 'hidden';
 
     try {
-      const res  = await fetch(`/reliability/source-data/${encodeURIComponent(key)}`);
+      const ruParam = activeRU ? `?ru=${encodeURIComponent(activeRU)}` : '';
+      const res  = await fetch(`/reliability/source-data/${encodeURIComponent(key)}${ruParam}`);
       const data = await res.json();
       if (data.success) {
         titleEl.textContent = data.title || label;

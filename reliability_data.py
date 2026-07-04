@@ -716,8 +716,10 @@ def _get_laporan_bulanan() -> dict:
 # SOURCE DATA — untuk modal "Lihat Sumber Data" di frontend
 # ─────────────────────────────────────────────────────────────────────────────
 
-def get_source_rows(key: str) -> tuple:
-    """Return (rows: list[dict], columns: list[str], title: str)."""
+def get_source_rows(key: str, ru: str = None) -> tuple:
+    """Return (rows: list[dict], columns: list[str], title: str).
+    If ru is given, filter rows to that RU only (using normalized ru_name).
+    """
     _SOURCES = {
         "paf":          _src_paf,
         "issue_paf":    _src_issue_paf,
@@ -733,7 +735,11 @@ def get_source_rows(key: str) -> tuple:
     }
     if key not in _SOURCES:
         raise ValueError(f"Source key '{key}' tidak dikenal.")
-    return _SOURCES[key]()
+    rows, columns, title = _SOURCES[key]()
+    if ru:
+        rows = [r for r in rows if (r.get("ru_name") or "").strip() == ru.strip()]
+        title = f"{title} — {ru}"
+    return rows, columns, title
 
 
 def _src_paf():

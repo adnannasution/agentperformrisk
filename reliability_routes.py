@@ -184,8 +184,9 @@ def get_history_detail(output_id):
 @reliability_bp.route("/reliability/source-data/<source_key>", methods=["GET"])
 def get_source_data(source_key):
     """Kembalikan baris data mentah untuk modal 'Lihat Sumber Data'."""
+    ru = request.args.get("ru", "").strip() or None
     try:
-        rows, columns, title = get_source_rows(source_key)
+        rows, columns, title = get_source_rows(source_key, ru=ru)
         return jsonify({
             "success": True,
             "key":     source_key,

@@ -48,6 +48,20 @@ _RU_NORMALIZE = {
     "RU V - BALIKPAPAN": "RU V Balikpapan",
     "RU VI - BALONGAN":  "RU VI Balongan",
     "RU VII - KASIM":    "RU VII Kasim",
+    # R-codes (boc.ru, oa_monitoring.refinery_unit, plo_monitoring.refinery_unit)
+    "R201": "RU II Dumai",
+    "R202": "RU II Dumai",
+    "R203": "RU II Dumai",
+    "R301": "RU III Plaju",
+    "R302": "RU III Plaju",
+    "R401": "RU IV Cilacap",
+    "R402": "RU IV Cilacap",
+    "R501": "RU V Balikpapan",
+    "R502": "RU V Balikpapan",
+    "R601": "RU VI Balongan",
+    "R602": "RU VI Balongan",
+    "R701": "RU VII Kasim",
+    "R702": "RU VII Kasim",
     # Sub-unit → gabung ke RU induk
     "RU II PAKNING": "RU II Dumai",
     # Special
@@ -143,6 +157,8 @@ def get_reliability_data() -> dict:
         "bad_actor":          _get_bad_actor(),
         "icu":                _get_icu(),
         "boc_mtbf":           _get_boc(),
+        "oa":                 _get_oa(),
+        "plo":                _get_plo(),
         "rcps":               _get_rcps(),
         "rcps_rekomendasi":   _get_rcps_rekomendasi(),
         "irkap_summary":      _get_irkap_summary(),
@@ -307,6 +323,44 @@ def _get_boc() -> dict:
         return {
             "low_mtbf_equipment": [_add_ru_name(dict(r)) for r in low_mtbf],
             "summary_by_ru":      [_add_ru_name(dict(r)) for r in summary],
+        }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6a. OA Monitoring (Overall Availability)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _get_oa() -> list:
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT refinery_unit, actual_target, value_perc, month_update, color
+            FROM oa_monitoring
+            ORDER BY refinery_unit, actual_target
+        """)
+        return [_enrich_row(dict(r)) for r in cur.fetchall()]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6b. PLO Monitoring (Perizinan/Legalitas Operasional)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _get_plo() -> dict:
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT refinery_unit, nomor_ijin, nama_plo,
+                   cakupan_unit_plant_kapasitas, date_expired,
+                   sum_of_days_expired, status_plo, remarks
+            FROM plo_monitoring
+            ORDER BY refinery_unit, sum_of_days_expired DESC
+        """)
+        rows = [_enrich_row(dict(r)) for r in cur.fetchall()]
+
+        expired     = [r for r in rows if str(r.get("status_plo","")).strip().lower() == "expired"]
+        not_expired = [r for r in rows if str(r.get("status_plo","")).strip().lower() != "expired"]
+        return {
+            "all":         rows,
+            "expired":     expired,
+            "not_expired": not_expired,
         }
 
 
@@ -732,6 +786,8 @@ def get_source_rows(key: str, ru: str = None) -> tuple:
         "inspection":   _src_inspection,
         "sap_wo":       _src_sap_wo,
         "sap_notif":    _src_sap_notif,
+        "oa":           _src_oa,
+        "plo":          _src_plo,
     }
     if key not in _SOURCES:
         raise ValueError(f"Source key '{key}' tidak dikenal.")
@@ -961,6 +1017,31 @@ def _src_sap_notif():
     return rows, cols, "SAP Notifications — Critical Backlog (Belum Ada WO)"
 
 
+def _src_oa():
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT refinery_unit, actual_target, value_perc, month_update, color
+            FROM oa_monitoring ORDER BY refinery_unit, actual_target
+        """)
+        rows = [_enrich_row(dict(r)) for r in cur.fetchall()]
+    cols = ["ru_name", "refinery_unit", "actual_target", "value_perc", "month_update", "color"]
+    return rows, cols, "OA Monitoring — Overall Availability"
+
+
+def _src_plo():
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT refinery_unit, nomor_ijin, nama_plo,
+                   cakupan_unit_plant_kapasitas, date_expired,
+                   sum_of_days_expired, status_plo, remarks
+            FROM plo_monitoring ORDER BY refinery_unit, sum_of_days_expired DESC
+        """)
+        rows = [_enrich_row(dict(r)) for r in cur.fetchall()]
+    cols = ["ru_name", "refinery_unit", "nomor_ijin", "nama_plo",
+            "cakupan_unit_plant_kapasitas", "date_expired", "sum_of_days_expired", "status_plo", "remarks"]
+    return rows, cols, "PLO Monitoring — Perizinan Legalitas Operasional"
+
+
 def get_dashboard_data() -> dict:
     """Aggregasi ringkas dari semua tabel untuk chart dashboard."""
     with _cursor() as cur:
@@ -1070,6 +1151,28 @@ def get_dashboard_data() -> dict:
         """)
         stagnant = dict(cur.fetchone() or {})
 
+        # OA per RU (latest month)
+        cur.execute("""
+            SELECT refinery_unit AS ru, actual_target,
+                   ROUND((value_perc * 100)::numeric, 2) AS value_pct,
+                   month_update, color
+            FROM oa_monitoring
+            ORDER BY refinery_unit, actual_target
+        """)
+        oa_per_ru = [_enrich_row(dict(r)) for r in cur.fetchall()]
+
+        # PLO expired count per RU
+        cur.execute("""
+            SELECT refinery_unit AS ru,
+                   COUNT(*) FILTER (WHERE LOWER(status_plo) = 'expired') AS expired_count,
+                   COUNT(*) AS total
+            FROM plo_monitoring
+            GROUP BY refinery_unit ORDER BY refinery_unit
+        """)
+        plo_per_ru = [_enrich_row(dict(r)) for r in cur.fetchall()]
+
+        plo_expired_total = sum(int(r.get('expired_count') or 0) for r in plo_per_ru)
+
     # KPI rollup
     icu_open   = sum(int(r.get('open_count') or 0) for r in icu_per_ru)
     ins_over   = sum(int(r.get('overdue')    or 0) for r in inspection_per_ru)
@@ -1086,15 +1189,18 @@ def get_dashboard_data() -> dict:
             "pm_compliance_pct":   pm_pct,
             "rcps_red":            rcps_red,
             "stagnant_wo":         int(stagnant.get('stagnant_count') or 0),
+            "plo_expired":         plo_expired_total,
         },
         "paf_per_ru":        paf_per_ru,
         "icu_per_ru":        icu_per_ru,
         "rcps_traffic":      rcps_traffic,
         "irkap_per_ru":      irkap_per_ru,
         "bad_actor_summary": bad_actor_summary,
-        "boc_per_ru":        boc_per_ru,
+        "boc_per_ru":        [_enrich_row(r) for r in boc_per_ru],
         "pm_compliance":     pm,
         "inspection_per_ru": inspection_per_ru,
+        "oa_per_ru":         oa_per_ru,
+        "plo_per_ru":        plo_per_ru,
     }
 
 

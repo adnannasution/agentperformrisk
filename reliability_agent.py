@@ -155,6 +155,35 @@ def _build_context(data: dict, ru: str = None) -> str:
     if ru:
         parts.append(f"[SCOPE: Analisis terfokus pada {ru} saja]\n")
 
+    # ── OA (Overall Availability) ────────────────────────────────────────────
+    oa_rows = data.get("oa", [])
+    if oa_rows:
+        filtered_oa = _filter_ru(oa_rows, ru)
+        parts.append("=== OA (Overall Availability) ===")
+        parts.append(f"[STATS] Total OA rows: {len(filtered_oa)} | Per RU: {_count_by_ru(filtered_oa, None)}")
+        for r in filtered_oa[:20]:
+            pct_val = float(r.get('value_perc') or 0) * 100
+            parts.append(
+                f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
+                f"{r.get('actual_target')}: {pct_val:.2f}% | "
+                f"Bulan: {r.get('month_update')} | Warna: {r.get('color')}"
+            )
+
+    # ── PLO (Perizinan Legalitas Operasional) ────────────────────────────────
+    plo = data.get("plo", {})
+    if plo.get("all"):
+        plo_filtered = _filter_ru(plo["all"], ru)
+        plo_expired  = [r for r in plo_filtered if str(r.get("status_plo","")).lower() == "expired"]
+        parts.append("\n=== PLO Monitoring (Perizinan Legalitas Operasional) ===")
+        parts.append(f"[STATS] Total PLO: {len(plo_filtered)} | Expired: {len(plo_expired)} | Per RU: {_count_by_ru(plo_filtered, None)}")
+        for r in plo_expired[:15]:
+            parts.append(
+                f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
+                f"Nomor: {r.get('nomor_ijin')} | Nama: {r.get('nama_plo')} | "
+                f"Expired: {r.get('date_expired')} | Hari: {r.get('sum_of_days_expired')} | "
+                f"Status: {r.get('status_plo')}"
+            )
+
     # ── PAF ──────────────────────────────────────────────────────────────────
     paf = data.get("paf", {})
     if paf.get("current"):

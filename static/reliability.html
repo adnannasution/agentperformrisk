@@ -490,8 +490,9 @@
   .dash-refresh:hover { border-color:var(--teal-400); color:var(--teal-700); }
 
   /* KPI tiles */
-  .kpi-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:16px; }
-  @media(max-width:900px){ .kpi-grid { grid-template-columns:repeat(3,1fr); } }
+  .kpi-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:10px; margin-bottom:16px; }
+  @media(max-width:1000px){ .kpi-grid { grid-template-columns:repeat(4,1fr); } }
+  @media(max-width:600px){  .kpi-grid { grid-template-columns:repeat(2,1fr); } }
   .kpi-tile {
     background:#fff; border:1px solid var(--slate-200); border-radius:10px;
     padding:14px 12px 12px; text-align:center; position:relative; overflow:hidden;
@@ -1392,6 +1393,7 @@
     const pmColor = pmPct >= 80 ? C.green : pmPct >= 60 ? C.amber : C.red;
 
     // KPI row
+    const ploExp = parseInt(kpi.plo_expired||0);
     const kpiRow = `<div class="kpi-grid">
       ${kpiTile(fmt(kpi.icu_open),          'ICU Open',           'crit')}
       ${kpiTile(fmt(kpi.bad_actor_open),     'Bad Actor Open',     'warn')}
@@ -1399,6 +1401,7 @@
       ${kpiTile(pmPct+'%',                   'PM Compliance',      pmPct>=80?'good':pmPct>=60?'warn':'crit', 'PTO3')}
       ${kpiTile(fmt(kpi.rcps_red),           'RCPS RED',           'crit')}
       ${kpiTile(fmt(kpi.stagnant_wo),        'Stagnant WO',        'slate')}
+      ${kpiTile(fmt(ploExp),                 'PLO Expired',        ploExp>0?'crit':'good')}
     </div>`;
 
     // PAF chart
@@ -1475,6 +1478,27 @@
       hBar(insRows, 'overdue', 'ru', {color:C.amber}),
     ) : '';
 
+    // OA per RU — grouped bar (Actual vs Target %)
+    const oaAll   = (d.oa_per_ru||[]);
+    const oaRUs   = [...new Set(oaAll.map(r => r.ru_name||r.ru))].filter(Boolean);
+    const oaRows  = oaRUs.map(ru => {
+      const act = oaAll.find(r => (r.ru_name||r.ru)===ru && r.actual_target==='Actual');
+      const tgt = oaAll.find(r => (r.ru_name||r.ru)===ru && r.actual_target==='Target');
+      return { ru, actual: parseFloat(act?.value_pct||0), target: parseFloat(tgt?.value_pct||0) };
+    }).filter(r => r.actual>0 || r.target>0);
+    const oaChart = oaRows.length ? chartCard(
+      'OA (Overall Availability) — Aktual vs Target per RU (%)',
+      hBarGrouped(oaRows, ['actual','target'], [C.teal, C.amberL], 'ru', {rowH:38}),
+      [{color:C.teal,label:'Aktual'},{color:C.amber,label:'Target'}]
+    ) : '';
+
+    // PLO expired per RU
+    const ploRows = (d.plo_per_ru||[]).filter(r => parseInt(r.expired_count||0)>0);
+    const ploChart = ploRows.length ? chartCard(
+      'PLO Expired per RU',
+      hBar(ploRows.map(r=>({...r, ru: r.ru_name||r.ru})), 'expired_count', 'ru', {color:C.red}),
+    ) : '';
+
     return `<div class="dash-wrap">
       <div class="dash-hdr">
         <span class="dash-hdr-title">📊 Reliability Infographic — Live Data</span>
@@ -1485,6 +1509,7 @@
       <div class="dash-row dash-row-3">${icuChart}${baChart}</div>
       <div class="dash-row dash-row-2">${irkChart}${bocChart}</div>
       <div class="dash-row dash-row-3">${insChart}${pmChart}</div>
+      ${(oaChart||ploChart) ? `<div class="dash-row dash-row-2">${oaChart}${ploChart}</div>` : ''}
     </div>`;
   }
 

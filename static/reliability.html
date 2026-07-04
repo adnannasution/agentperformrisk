@@ -925,20 +925,12 @@
 
   // ── Section → Sumber Data mapping ──────────────────────────────────────────
   const SECTION_SOURCES = {
-    '1': [
-      { key: 'paf',  label: 'PAF Data' },
-      { key: 'boc',  label: 'BOC / MTBF' },
-    ],
-    '2': [
-      { key: 'paf',  label: 'PAF Trend' },
-    ],
     '3': [
       { key: 'icu',       label: 'ICU' },
       { key: 'bad_actor', label: 'Bad Actor' },
     ],
     '4': [
-      { key: 'issue_paf', label: 'Issue PAF' },
-      { key: 'boc',       label: 'BOC / MTBF' },
+      { key: 'boc', label: 'BOC / MTBF' },
     ],
     '5': [
       { key: 'critical_eqp', label: 'Critical Eqp' },
@@ -950,6 +942,14 @@
       { key: 'rcps',      label: 'RCPS' },
       { key: 'sap_wo',    label: 'SAP WO' },
       { key: 'sap_notif', label: 'SAP Notif' },
+    ],
+    '8': [
+      { key: 'icu',        label: 'ICU' },
+      { key: 'inspection', label: 'Inspection' },
+    ],
+    '9': [
+      { key: 'bad_actor',  label: 'Bad Actor' },
+      { key: 'rcps',       label: 'RCPS' },
     ],
   };
 
@@ -963,7 +963,6 @@
     { re: /\b(\d{1,4})\s+(notifikasi|notif)\b/gi,                 key: 'sap_notif', label: 'SAP Notif' },
     { re: /\b(\d{1,4})\s+(inspeksi|inspection|overdue)\b/gi,      key: 'inspection',label: 'Inspection' },
     { re: /\b(\d{1,4})\s+(program|IRKAP)\b/gi,                    key: 'irkap',     label: 'IRKAP' },
-    { re: /\b(\d{1,4})\s+(issue|penyebab)\b/gi,                   key: 'issue_paf', label: 'Issue PAF' },
     { re: /\b(\d{1,4})\s+(equipment|peralatan|kritis)\b/gi,       key: 'critical_eqp', label: 'Critical Eqp' },
     { re: /\b(\d{1,4})\s+(failure|kegagalan|breakdown|BOC)\b/gi,  key: 'boc',       label: 'BOC / MTBF' },
   ];
@@ -982,19 +981,10 @@
              `title="Lihat data: ${l}">${m}<sup>↗</sup></span>`;
     };
 
-    // 1. Persentase: 87.5%, 90%, 92,3%
-    s = s.replace(/\b(\d+(?:[.,]\d+)?\s*%)/g, m => makeChip(m));
-
-    // 2. Tag equipment: P-1001A, E-2345, FCV-101B
-    s = s.replace(/\b([A-Z]{1,4}-\d{3,5}[A-Z]{0,2})\b/g, m => makeChip(m));
-
-    // 3. Angka jumlah dengan keyword spesifik → sumber data yang sesuai
+    // Angka jumlah dengan keyword spesifik → sumber data yang sesuai (DB row count)
     for (const { re, key, label } of COUNT_KEYWORD_MAP) {
       s = s.replace(re, m => makeChip(m, key, label));
     }
-
-    // 4. Angka jumlah generik + kata "item" → sumber utama section
-    s = s.replace(/\b(\d{1,4})\s+(item)\b/gi, m => makeChip(m));
 
     return s;
   }

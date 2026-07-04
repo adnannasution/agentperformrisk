@@ -60,6 +60,8 @@
     gap: 16px; margin-bottom: 16px;
   }
   .left-col { display: flex; flex-direction: column; gap: 16px; }
+  /* Cegah card kanan memperlebar grid karena konten overflow */
+  .grid-main > .card:last-child { min-width: 0; overflow: hidden; }
 
   /* ── CARD ────────────────────────────────────────────────────── */
   .card {
@@ -159,7 +161,7 @@
     background: var(--slate-50); border: 1px solid var(--slate-200);
     border-radius: 10px; padding: 20px;
     min-height: 240px; max-height: 600px;
-    overflow-y: auto; overflow-x: auto;
+    overflow-y: auto; overflow-x: auto; width: 100%;
     font-size: 13px; line-height: 1.6; color: var(--slate-700);
   }
   .output-body.empty {

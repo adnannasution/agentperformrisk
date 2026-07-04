@@ -463,51 +463,51 @@ OUTPUT RULE: Return ONLY raw HTML starting with <!DOCTYPE html>. No markdown fen
 All text content in Bahasa Indonesia. All data values MUST come from the analysis — no placeholders.
 
 ━━━ VISUAL DESIGN SYSTEM ━━━
-Color tokens:
-  --bg: #0f172a          (page background — dark navy)
-  --surface: #1e293b     (card background)
-  --surface2: #263044    (card inner / row alt)
-  --border: #334155      (card border)
-  --teal: #14b8a6        (primary accent)
-  --teal-dim: #0d9488
-  --text: #f1f5f9        (primary text)
-  --muted: #94a3b8       (secondary text)
-  --green: #22c55e  --green-dim: #166534  --green-bg: #052e16
-  --yellow: #eab308 --yellow-dim: #854d0e --yellow-bg: #1c1403
-  --orange: #f97316 --orange-dim: #9a3412 --orange-bg: #1c0d03
-  --red: #ef4444    --red-dim: #991b1b    --red-bg: #1c0505
-  --grey: #64748b   --grey-bg: #0f172a
+Color tokens (LIGHT THEME — clean professional white):
+  --bg: #f1f5f9          (page background — light grey)
+  --surface: #ffffff     (card background — white)
+  --surface2: #f8fafc    (card inner / row alt — off-white)
+  --border: #e2e8f0      (card border — light grey)
+  --teal: #0d9488        (primary accent)
+  --teal-light: #f0fdfa  (teal tint bg)
+  --text: #0f172a        (primary text — near black)
+  --muted: #64748b       (secondary text — slate)
+  --green: #16a34a  --green-bg: #dcfce7  --green-border: #bbf7d0
+  --yellow: #b45309 --yellow-bg: #fef3c7 --yellow-border: #fde68a
+  --orange: #c2410c --orange-bg: #ffedd5 --orange-border: #fed7aa
+  --red: #dc2626    --red-bg: #fee2e2    --red-border: #fecaca
+  --grey: #64748b   --grey-bg: #f1f5f9   --grey-border: #e2e8f0
 
 Typography:
   font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif
   Base: 13px / 1.6. Heading: 700. Mono numbers: font-variant-numeric: tabular-nums
 
-Cards: border-radius:14px; padding:20px 24px; border:1px solid var(--border); box-shadow:0 4px 24px rgba(0,0,0,.4)
-Sections: margin-bottom: 28px
-Section heading: font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; display:flex; align-items:center; gap:8px; — add a 2px teal left-border accent
+Cards: border-radius:12px; padding:20px 24px; border:1px solid var(--border); box-shadow:0 1px 8px rgba(0,0,0,.06)
+Sections: margin-bottom: 24px
+Section heading: font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; padding-left:10px; border-left:3px solid #0d9488
 
 ━━━ STATUS BADGE COMPONENT ━━━
 Inline pill: padding 3px 10px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.04em
-  Green  → bg #052e16; color #22c55e; border:1px solid #166534
-  Yellow → bg #1c1403; color #eab308; border:1px solid #854d0e
-  Orange → bg #1c0d03; color #f97316; border:1px solid #9a3412
-  Red    → bg #1c0505; color #ef4444; border:1px solid #991b1b
-  Grey   → bg #1e293b; color #94a3b8; border:1px solid #334155
+  Green  → bg #dcfce7; color #16a34a; border:1px solid #bbf7d0
+  Yellow → bg #fef3c7; color #b45309; border:1px solid #fde68a
+  Orange → bg #ffedd5; color #c2410c; border:1px solid #fed7aa
+  Red    → bg #fee2e2; color #dc2626; border:1px solid #fecaca
+  Grey   → bg #f1f5f9; color #64748b; border:1px solid #e2e8f0
 
 ━━━ TREND INDICATOR ━━━
-After numeric values show trend: ▲ color:#22c55e (improving) | ▼ color:#ef4444 (deteriorating) | → color:#94a3b8 (stable)
+After numeric values show trend: ▲ color:#16a34a (improving) | ▼ color:#dc2626 (deteriorating) | → color:#94a3b8 (stable)
 Determine from analysis text; omit if not determinable.
 
 ━━━ PROGRESS BAR COMPONENT ━━━
-For percentage KPIs, render a slim bar (height:4px; border-radius:2px; background:#334155) with a fill div (height:100%; border-radius:2px; transition:width .6s ease). Color fill by value:
-  ≥95% → #22c55e | 85–94% → #eab308 | 70–84% → #f97316 | <70% → #ef4444
+For percentage KPIs, render a slim bar (height:5px; border-radius:3px; background:#e2e8f0) with a fill div (height:100%; border-radius:3px). Color fill by value:
+  ≥95% → #16a34a | 85–94% → #b45309 | 70–84% → #c2410c | <70% → #dc2626
 
 ━━━ PAGE STRUCTURE ━━━
 
-[1] HEADER BAR (full-width, bg:#1e293b, border-bottom:1px solid #334155, padding:16px 32px)
-  Left: logo area — colored square icon (bg: teal gradient) + "RELIABILITY DASHBOARD" in teal 700 + "Nasional — Seluruh RU" subtitle in muted
-  Center: overall health status badge (large, 14px) + tagline "Kondisi Sistem Reliability"
-  Right: mode badge (Weekly/Monthly) + generated timestamp
+[1] HEADER BAR (full-width, bg:#ffffff, border-bottom:2px solid #e2e8f0, padding:16px 32px; box-shadow:0 1px 4px rgba(0,0,0,.06))
+  Left: logo area — colored square icon (bg: linear-gradient(135deg,#0d9488,#0f766e), border-radius:10px, 36×36px) + "RELIABILITY DASHBOARD" bold teal 16px + "Nasional — Seluruh RU" subtitle muted 12px
+  Center: overall health status badge (large 14px) + tagline "Kondisi Sistem Reliability" muted
+  Right: mode badge (Weekly bg:#f0fdfa,color:#0f766e,border:#99f6e4 / Monthly bg:#fef3c7,color:#92400e,border:#fde68a) + generated timestamp muted
 
 [2] CONTAINER (max-width:1280px; margin:0 auto; padding:24px 28px; background:var(--bg))
 
@@ -583,28 +583,28 @@ OUTPUT RULE: Return ONLY raw HTML starting with <!DOCTYPE html>. No markdown fen
 All text content in Bahasa Indonesia. All data values MUST come from the analysis — no placeholders.
 
 ━━━ VISUAL DESIGN SYSTEM ━━━
-Same dark theme as overall dashboard:
-  --bg:#0f172a; --surface:#1e293b; --surface2:#263044; --border:#334155
-  --teal:#14b8a6; --text:#f1f5f9; --muted:#94a3b8
-  Status colors: Green #22c55e / Yellow #eab308 / Orange #f97316 / Red #ef4444 / Grey #64748b
-  Status bgs:    #052e16 / #1c1403 / #1c0d03 / #1c0505 / #0f172a
+Light professional theme (white/grey):
+  --bg:#f1f5f9; --surface:#ffffff; --surface2:#f8fafc; --border:#e2e8f0
+  --teal:#0d9488; --text:#0f172a; --muted:#64748b
+  Status colors: Green #16a34a / Yellow #ca8a04 / Orange #ea580c / Red #dc2626 / Grey #64748b
+  Status bgs:    #dcfce7 / #fef9c3 / #ffedd5 / #fee2e2 / #f1f5f9
 
 Typography: 'Segoe UI', system-ui, Arial, sans-serif; base 13px/1.6; font-variant-numeric:tabular-nums on numbers
-Cards: border-radius:14px; padding:20px 24px; border:1px solid var(--border); box-shadow:0 4px 24px rgba(0,0,0,.4)
+Cards: border-radius:14px; padding:20px 24px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(0,0,0,.06)
 
 ━━━ STATUS BADGE ━━━
 Pill: padding 3px 10px; border-radius:20px; font-size:11px; font-weight:700
-  Green→bg #052e16;color #22c55e;border:1px solid #166534 | Yellow→bg #1c1403;color #eab308;border:1px solid #854d0e
-  Orange→bg #1c0d03;color #f97316;border:1px solid #9a3412 | Red→bg #1c0505;color #ef4444;border:1px solid #991b1b
+  Green→bg #dcfce7;color #16a34a;border:1px solid #bbf7d0 | Yellow→bg #fef9c3;color #ca8a04;border:1px solid #fde68a
+  Orange→bg #ffedd5;color #ea580c;border:1px solid #fed7aa | Red→bg #fee2e2;color #dc2626;border:1px solid #fecaca
 
 ━━━ PAGE STRUCTURE ━━━
 
-[1] HERO HEADER (full-width, gradient bg: linear-gradient(135deg,#0f172a 0%,#1e293b 100%), border-bottom:1px solid #334155, padding:24px 32px)
+[1] HERO HEADER (full-width, bg:#ffffff, border-bottom:1px solid #e2e8f0, padding:24px 32px)
   Top row: breadcrumb "Reliability Dashboard / [RU Name]" in muted | Right: mode badge + timestamp
   Main row:
-    Left: Large RU name (24px, 800, teal) + location subtitle + overall status badge (16px pill) + generated date
+    Left: Large RU name (24px, 800, #0d9488) + location subtitle + overall status badge (16px pill) + generated date
     Right: 5-DIMENSION SCORECARD — horizontal flex row of 5 score chips:
-      Each chip (padding:8px 16px; border-radius:10px; border:1px solid; text-center):
+      Each chip (padding:8px 16px; border-radius:10px; border:1px solid #e2e8f0; bg:#f8fafc; text-center):
         - Dimension label (10px muted uppercase)
         - Status color circle (12px)
         - Status text (13px bold, status color)
@@ -617,10 +617,10 @@ Pill: padding 3px 10px; border-radius:20px; font-size:11px; font-weight:700
   Left card: Extract ## 1 content
     - "Kondisi Umum" row with overall status + 1-sentence summary
     - Key findings as styled bullet rows (colored dot + bold finding + muted detail)
-    - Critical items: border-left:3px solid #ef4444; bg:#1c0505; padding:8px 12px; border-radius:6px; margin:4px 0
+    - Critical items: border-left:3px solid #dc2626; bg:#fee2e2; padding:8px 12px; border-radius:6px; margin:4px 0
   Right card: "Risk Scorecard"
-    - 5 rows, each dimension:  label (left) + status badge (right) + progress-like fill bar
-    - Bar: height:3px; bg:#334155; fill color by status; width proportional (Green=90%, Yellow=65%, Orange=40%, Red=20%)
+    - 5 rows, each dimension: label (left) + status badge (right) + progress-like fill bar
+    - Bar: height:3px; bg:#e2e8f0; fill color by status; width proportional (Green=90%, Yellow=65%, Orange=40%, Red=20%)
     - Bottom: "Prioritas Perhatian" — top 2 concerns as highlighted pills
 
 [4] KPI METRICS ROW (8 cards max, grid:repeat(4,1fr) gap:12px, wraps to repeat(4,1fr) then repeat(2,1fr))
@@ -633,12 +633,12 @@ Pill: padding 3px 10px; border-radius:20px; font-size:11px; font-weight:700
   KPIs: PAF Primary (%), PAF Secondary (%), ICU Open, Bad Actor Open, Inspection Overdue, PM Compliance (%), WO Stagnant, Maintenance Spend Absorption (%)
 
 [5] TWO-COLUMN ANALYSIS: Leading vs Lagging (side by side, each full card)
-  Left — "Leading Indicators" (border-top:3px solid #eab308):
+  Left — "Leading Indicators" (border-top:3px solid #ca8a04):
     Extract from ## 5. Render each concern as a row card (surface2, border-radius:8px, padding:10px 14px, margin-bottom:8px):
       - Indicator name bold + status badge right-aligned
       - Detail text muted 12px
       - If number present: render inline pill
-  Right — "Lagging Indicators" (border-top:3px solid #ef4444):
+  Right — "Lagging Indicators" (border-top:3px solid #dc2626):
     Extract from ## 6. Same row card style.
 
 [6] ANALYSIS SECTIONS GRID (2-column, gap:14px)
@@ -651,8 +651,8 @@ Pill: padding 3px 10px; border-radius:20px; font-size:11px; font-weight:700
   Title: "Equipment & Asset Kritis — Memerlukan Perhatian Segera"
   Extract all equipment/tags mentioned in ## 3, ## 6, ## 8, ## 9 as risk items
   Table columns: No | Tag / Equipment | Unit / Lokasi | Isu Utama | Traffic/Status | Target Penyelesaian | Rekomendasi
-  Row highlight: RED traffic → bg #1c0505, left-border:3px solid #ef4444
-                 YELLOW → bg #1c1403, left-border:3px solid #eab308
+  Row highlight: RED traffic → bg #fee2e2, left-border:3px solid #dc2626
+                 YELLOW → bg #fef9c3, left-border:3px solid #ca8a04
   Max 12 rows. If no equipment tags: render a "Tidak ada equipment spesifik yang diidentifikasi" empty state.
 
 [8] MAINTENANCE SPEND PANEL (full-width, 3-column inner grid)
@@ -665,23 +665,23 @@ Pill: padding 3px 10px; border-radius:20px; font-size:11px; font-weight:700
   Extract from ## 11:
   Columns: # | Isu | Risiko Jika Tidak Ditangani | Aksi yang Direkomendasikan | Owner | Timeframe
   Style: critical rows → red left-border + subtle red bg; medium → yellow left-border
-  th: teal color, bg surface2
+  th: color #0d9488, bg #f8fafc
 
 [10] FOOTER
-  bg #1e293b; border-top:1px solid #334155; padding:14px 32px; display:flex; justify-content:space-between
+  bg #ffffff; border-top:1px solid #e2e8f0; padding:14px 32px; display:flex; justify-content:space-between
   Left: "Data Quality & Limitation" from ## 12 (max 2 lines, muted 11px)
   Right: confidence badge + "Generated by Reliability Performance & Risk Agent"
 
 ━━━ MICRO-DETAILS ━━━
 - Bullet rows: display:flex;align-items:flex-start;gap:8px;margin-bottom:7px
 - Colored dot: width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:7px
-- Red dot: #ef4444 | Yellow: #eab308 | Green: #22c55e | Muted: #475569
+- Red dot: #dc2626 | Yellow: #ca8a04 | Green: #16a34a | Muted: #94a3b8
 - Tables: border-collapse:collapse;width:100%;font-size:12px; th padding:10px 14px; td padding:9px 14px
-- Inline number pills: font-size:11px;font-variant-numeric:tabular-nums;bg:#263044;padding:1px 7px;border-radius:4px;font-weight:700
-- Strong critical values: color:#ef4444;font-weight:700
-- Strong warning values: color:#eab308;font-weight:700
-- Strong good values: color:#22c55e;font-weight:700
-- Section labels: font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94a3b8;margin-bottom:12px;padding-left:10px;border-left:3px solid #14b8a6
+- Inline number pills: font-size:11px;font-variant-numeric:tabular-nums;bg:#f1f5f9;color:#0f172a;padding:1px 7px;border-radius:4px;font-weight:700;border:1px solid #e2e8f0
+- Strong critical values: color:#dc2626;font-weight:700
+- Strong warning values: color:#ca8a04;font-weight:700
+- Strong good values: color:#16a34a;font-weight:700
+- Section labels: font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin-bottom:12px;padding-left:10px;border-left:3px solid #0d9488
 - @media(max-width:900px): KPI grid→repeat(4,1fr); hero right→hidden or below
 - @media(max-width:600px): all grids→1fr
 

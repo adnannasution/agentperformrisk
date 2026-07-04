@@ -23,56 +23,87 @@ llm = ChatOpenAI(
 
 _BASE_SYSTEM = """Anda adalah Reliability Performance & Risk Agent untuk operasi kilang minyak Pertamina.
 
-Tugas Anda adalah membaca KPI, trend, leading-lagging indicator, dan hotspot risk
-untuk menilai health reliability sistem secara menyeluruh dan periodik.
+Tugas Anda adalah membaca performa reliability secara periodik dari sisi KPI, trend, leading-lagging indicator, operational availability, maintenance spend, asset integrity, dan hotspot risk untuk menilai kondisi kesehatan reliability secara menyeluruh, baik pada level nasional/konsolidasi maupun per Refinery Unit (RU).
 
-FOKUS ANALISIS:
-- Apakah performa sistem membaik, stagnan, atau memburuk?
-- Apa sinyal dini (leading indicator) yang perlu diwaspadai?
-- Di area atau equipment mana risiko terkonsentrasi?
-- Apakah KPI resmi mencerminkan kondisi nyata di lapangan?
+RU YANG DIANALISIS:
+1. RU II Dumai & Sungai Pakning
+2. RU III Plaju
+3. RU IV Cilacap
+4. RU V Balikpapan
+5. RU VI Balongan
+6. RU VII Kasim
 
-ATURAN ANALISIS:
+PRINSIP ANALISIS:
 - Gunakan kombinasi leading DAN lagging indicator — jangan bertumpu pada satu KPI
-- Soroti mismatch antara angka resmi dan sinyal operasional
-- Jangan overreact terhadap 1 event tunggal tanpa melihat tren
-- Jangan menutup warning hanya karena lagging KPI masih baik
-- Bila data tren kurang panjang, nyatakan keterbatasan secara eksplisit
+- Bedakan: KPI hijau & risiko rendah / KPI hijau tapi leading melemah / KPI kuning / KPI merah
+- Soroti mismatch antara KPI resmi dan sinyal operasional lapangan
+- Bedakan masalah isolated equipment, unit-specific, RU-level, cross-RU, atau national governance
+- Jangan overreact terhadap 1 event tunggal tanpa tren
 - Jangan menyamakan korelasi dengan kausalitas
+- Jika data tidak cukup, nyatakan keterbatasan secara eksplisit
 
-KONDISI YANG HARUS DISOROT:
+KONDISI YANG WAJIB DISOROT:
 - Lagging KPI baik tapi leading KPI melemah
-- Repeated event pada hotspot yang sama
+- OA menurun meskipun PAF masih baik (masking effect)
 - PM compliance baik tapi failure tetap tinggi
-- Backlog critical meningkat
-- Risk hotspot terkonsentrasi di RU atau equipment tertentu
-- Gap antara KPI official dan sinyal operasional (ICU, Bad Actor, notifikasi SAP berulang)
-- Equipment dengan MTBF rendah dan MTTR tinggi
-- Inspection overdue pada equipment kritis
-- RCPS rekomendasi traffic Red yang belum dieksekusi
+- Backlog critical meningkat; WO overdue/stagnant meningkat
+- Maintenance spend meningkat tapi reliability tidak membaik
+- AIMS KeyPI tercapai tapi outstanding critical integrity masih besar
+- Inspection overdue pada equipment critical
+- ICU open terkonsentrasi di RU tertentu
+- Bad Actor open tidak menunjukkan closure trend
+- RCPS critical/Red tidak bergerak
+- Satu RU menjadi kontributor dominan risiko nasional
+- Corrective/emergency spend terlalu dominan vs preventive
+
+GUARD RAILS — Agent TIDAK boleh:
+- Menilai performa hanya dari satu KPI
+- Menyimpulkan membaik hanya karena PAF/OA di atas target
+- Menganggap spending tinggi selalu baik
+- Menganggap AIMS achievement tinggi berarti risk sudah terkendali
+- Mengabaikan RU kecil hanya karena kontribusi nasionalnya kecil
+- Memberikan rekomendasi tanpa prioritas, owner, dan timeframe
 
 BAHASA: Formal Indonesia, tajam, berbasis data, tidak lebih optimistis dari evidence.
 PEMBACA: Reliability Manager, VP Reliability, Plant Manager.
 
-FORMAT OUTPUT WAJIB — gunakan heading ini persis, jangan diubah:
+FORMAT OUTPUT WAJIB — gunakan heading berikut persis:
 
-## 1. Reliability Performance Overview
-(Satu paragraf: status keseluruhan sistem saat ini — membaik / stagnan / memburuk dan mengapa. Sebutkan angka kunci.)
+## 1. Executive Reliability Health Summary
+(Ringkasan kondisi nasional: overall status, KPI yang baik, sinyal risiko, RU dengan risiko tertinggi. Gunakan status: Green/Yellow/Orange/Red.)
 
-## 2. Trend Direction
-(Arah tren 3 indikator utama: PAF, failure frequency, backlog WO. Sebutkan apakah naik, turun, atau flat dan apa artinya.)
+## 2. National Performance Overview
+(PAF, OA, downtime, MTBF/MTTR, PM compliance, critical backlog, Bad Actor, AIMS, spend, risk concentration. Sertakan angka.)
 
-## 3. Leading Indicator Concern
-(Sinyal dini yang perlu diwaspadai: ICU open, repeated notification SAP, inspection overdue, RCPS Red, Bad Actor open. Urutkan dari paling kritis.)
+## 3. RU Performance Review
+(Analisis per RU: status, PAF/OA, leading concern, lagging concern, spend, AIMS, hotspot, management implication.)
 
-## 4. Lagging Indicator Status
-(Status KPI hasil: PAF aktual vs target per RU, MTBF/MTTR, PM completion rate, WO overdue. Sertakan angka.)
+## 4. Trend Direction
+(Improving / Stable / Stagnant / Deteriorating / Insufficient data — per indikator utama. Jelaskan driver utamanya.)
 
-## 5. Risk Hotspots
-(Daftar RU / equipment / area dengan konsentrasi risiko tertinggi. Format: nama → alasan → tingkat urgensi.)
+## 5. Leading Indicator Concern
+(PM compliance, critical backlog, inspection overdue, ICU open, AIMS outstanding, Bad Actor open, repeated notification, RCPS overdue, spend imbalance, risk mitigation overdue.)
 
-## 6. Management Implication
-(Keputusan atau tindakan konkret yang dibutuhkan manajemen dalam 1-2 minggu ke depan. Sertakan PIC yang disarankan jika relevan.)"""
+## 6. Lagging Indicator Concern
+(PAF, OA, downtime, unplanned shutdown, MTBF, MTTR, failure frequency. Sertakan angka per RU.)
+
+## 7. Maintenance Spend Effectiveness
+(Budget vs actual, absorption, spend by RU, efektivitas: apakah spend menurunkan backlog/failure/AIMS outstanding? Mismatch RU mana?)
+
+## 8. Asset Integrity Management Review
+(AIMS KeyPI achievement, outstanding, inspection overdue, ICU open, critical integrity threat, RU dengan exposure tertinggi.)
+
+## 9. Risk Hotspots
+(Daftar: RU | Unit | Equipment | Failure mode | Risk driver | Leading signal | Severity | Urgency: Critical/High/Medium/Low | Recommended action.)
+
+## 10. KPI vs Field Signal Mismatch
+(PAF baik tapi OA melemah; PM compliance baik tapi failure tinggi; AIMS tercapai tapi outstanding besar; spend tinggi tapi outcome tidak membaik; dll.)
+
+## 11. Management Implication
+(Format per isu: Issue | Why it matters | RU impacted | Risk if no action | Recommended action | Suggested owner | Timeframe | Expected outcome.)
+
+## 12. Data Quality and Limitation
+(Keterbatasan data: tren kurang panjang, data tidak lengkap per RU, tidak ada baseline, dll. Nyatakan confidence level.)"""
 
 
 _WEEKLY_SUFFIX = """
@@ -82,7 +113,8 @@ Fokus tambahan:
 - Perubahan atau anomali signifikan dalam periode terkini
 - Apakah ada event yang perlu eskalasi minggu depan
 - Konsistensi tren minggu ini dengan tren bulan berjalan
-- Flag isu baru yang belum ada di bulan lalu"""
+- Flag isu baru yang belum ada di periode sebelumnya
+- Scoring per RU: 5 dimensi (Reliability Performance, Leading Indicator Strength, Lagging Indicator Impact, Asset Integrity Exposure, Maintenance Spend Effectiveness) → Green/Yellow/Orange/Red/Grey"""
 
 
 _MONTHLY_SUFFIX = """
@@ -90,10 +122,12 @@ _MONTHLY_SUFFIX = """
 MODE: MONTHLY RELIABILITY HEALTH REVIEW
 Fokus tambahan:
 - Penilaian kesehatan sistem satu bulan penuh vs target RKAP
-- Perbandingan realisasi vs target: PAF, PM compliance, anggaran
+- Perbandingan realisasi vs target: PAF, OA, PM compliance, spend, AIMS
 - Program kerja yang carry-over dan dampak risiko ke bulan depan
 - Tren yang berkembang month-over-month
-- Rekomendasi prioritas program untuk bulan berikutnya"""
+- Rekomendasi prioritas program untuk bulan berikutnya
+- Scoring per RU: 5 dimensi (Reliability Performance, Leading Indicator Strength, Lagging Indicator Impact, Asset Integrity Exposure, Maintenance Spend Effectiveness) → Green/Yellow/Orange/Red/Grey
+- Top 3 RU requiring attention; Top 5 management issues nasional"""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -109,7 +143,7 @@ def _build_context(data: dict) -> str:
         parts.append("=== PAF (Plant Availability Factor) — Data Terkini ===")
         for r in paf["current"]:
             parts.append(
-                f"RU: {r.get('ru')} | Type: {r.get('type')} | "
+                f"RU: {r.get('ru_name') or r.get('ru')} | Type: {r.get('type')} | "
                 f"{r.get('target_realisasi')}: {r.get('value')} | "
                 f"Target: {r.get('target')} | "
                 f"Plan/Unplan: {r.get('plan_unplan')} | "
@@ -119,7 +153,8 @@ def _build_context(data: dict) -> str:
         parts.append("--- Trend PAF Realisasi ---")
         for r in paf["trend"][:12]:
             parts.append(
-                f"RU: {r.get('ru')} | Bulan: {r.get('month_update')} | "
+                f"RU: {r.get('ru_name') or r.get('ru')} | "
+                f"Bulan: {r.get('month_update')} | "
                 f"Avg Realisasi: {r.get('avg_value')}"
             )
 
@@ -129,7 +164,7 @@ def _build_context(data: dict) -> str:
         parts.append("\n=== Issue PAF (Penyebab Kehilangan Availability) ===")
         for r in issues[:25]:
             parts.append(
-                f"RU: {r.get('ru')} | Type: {r.get('type')} | "
+                f"RU: {r.get('ru_name') or r.get('ru')} | Type: {r.get('type')} | "
                 f"Tanggal: {r.get('date')} | Issue: {r.get('issue')}"
             )
 
@@ -139,7 +174,7 @@ def _build_context(data: dict) -> str:
         parts.append("\n=== Bad Actor Summary per RU ===")
         for r in bad["summary"]:
             parts.append(
-                f"RU: {r.get('ru')} | Total: {r.get('total')} | "
+                f"RU: {r.get('ru_name') or r.get('ru')} | Total: {r.get('total')} | "
                 f"Open: {r.get('open_count')} | Closed: {r.get('closed_count')}"
             )
     if bad.get("list"):
@@ -149,7 +184,8 @@ def _build_context(data: dict) -> str:
                           for k in ("open", "progress", "inprogress"))]
         for r in open_ba[:15]:
             parts.append(
-                f"RU: {r.get('ru')} | Tag: {r.get('tag_number')} | "
+                f"RU: {r.get('ru_name') or r.get('ru')} | "
+                f"Tag: {r.get('equipment_tag')} | "
                 f"Problem: {r.get('problem')} | Status: {r.get('status')} | "
                 f"Action: {r.get('action_plan')} | Target: {r.get('target_date')}"
             )
@@ -160,14 +196,15 @@ def _build_context(data: dict) -> str:
         parts.append("\n=== ICU (Integrity Concern Unit) — Summary ===")
         for r in icu["summary"]:
             parts.append(
-                f"RU: {r.get('ru')} | Total: {r.get('total')} | "
+                f"RU: {r.get('ru_name') or r.get('ru')} | Total: {r.get('total')} | "
                 f"Open: {r.get('open_count')} | Closed: {r.get('closed_count')}"
             )
     if icu.get("open_list"):
         parts.append("--- ICU Open ---")
         for r in icu["open_list"][:15]:
             parts.append(
-                f"RU: {r.get('ru')} | Tag: {r.get('tag_no')} | "
+                f"RU: {r.get('ru_name') or r.get('ru')} | "
+                f"Tag: {r.get('equipment_tag')} | "
                 f"Status: {r.get('icu_status')} | Issue: {r.get('issue')} | "
                 f"Mitigasi: {r.get('mitigation')} | Target: {r.get('target_closed')}"
             )
@@ -178,7 +215,7 @@ def _build_context(data: dict) -> str:
         parts.append("\n=== MTBF & MTTR Summary per RU ===")
         for r in boc["summary_by_ru"]:
             parts.append(
-                f"RU: {r.get('ru')} | "
+                f"RU: {r.get('ru_name') or r.get('ru')} | "
                 f"Avg MTBF: {r.get('avg_mtbf')} jam | "
                 f"Avg MTTR: {r.get('avg_mttr')} jam | "
                 f"Total Failures: {r.get('total_failures')}"
@@ -187,7 +224,8 @@ def _build_context(data: dict) -> str:
         parts.append("--- Equipment MTBF Terendah ---")
         for r in boc["low_mtbf_equipment"][:10]:
             parts.append(
-                f"RU: {r.get('ru')} | Equipment: {r.get('equipment')} | "
+                f"RU: {r.get('ru_name') or r.get('ru')} | "
+                f"Equipment: {r.get('equipment_tag')} | "
                 f"MTBF: {r.get('mtbf')} | MTTR: {r.get('mttr')} | "
                 f"Frekuensi Failure: {r.get('frequency')} | Hasil: {r.get('hasil')}"
             )
@@ -198,7 +236,7 @@ def _build_context(data: dict) -> str:
         parts.append("\n=== RCPS (Root Cause & Progress) ===")
         for r in rcps_list[:12]:
             parts.append(
-                f"Kilang: {r.get('kilang')} | No: {r.get('rcps_no')} | "
+                f"RU: {r.get('ru_name') or r.get('kilang')} | No: {r.get('rcps_no')} | "
                 f"Judul: {r.get('judul_rcps')} | "
                 f"Traffic: {r.get('traffic')} | "
                 f"Progress: {r.get('sum_of_progress')}%"
@@ -209,7 +247,7 @@ def _build_context(data: dict) -> str:
         parts.append("\n=== RCPS Rekomendasi — Traffic Summary ===")
         for r in rcps_rek["traffic_summary"]:
             parts.append(
-                f"Kilang: {r.get('kilang')} | "
+                f"RU: {r.get('ru_name') or r.get('kilang')} | "
                 f"Traffic: {r.get('traffic')} | "
                 f"Total: {r.get('total')}"
             )
@@ -217,7 +255,7 @@ def _build_context(data: dict) -> str:
         parts.append("--- RCPS Rekomendasi Belum Selesai ---")
         for r in rcps_rek["open_recommendations"][:10]:
             parts.append(
-                f"Kilang: {r.get('kilang')} | "
+                f"RU: {r.get('ru_name') or r.get('kilang')} | "
                 f"Rekomendasi: {r.get('rekomendasi')} | "
                 f"Traffic: {r.get('traffic')} | "
                 f"PIC: {r.get('pic')} | Target: {r.get('target')}"
@@ -229,7 +267,7 @@ def _build_context(data: dict) -> str:
         parts.append("\n=== IRKAP Program Summary per RU ===")
         for r in irkap["program_summary"]:
             parts.append(
-                f"RU: {r.get('refinery_unit')} | "
+                f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
                 f"Total: {r.get('total_program')} | "
                 f"On Track: {r.get('on_track')} | "
                 f"Delay: {r.get('delay')} | "
@@ -240,7 +278,7 @@ def _build_context(data: dict) -> str:
         parts.append("--- IRKAP Actual Completion ---")
         for r in irkap["actual_summary"]:
             parts.append(
-                f"RU: {r.get('refinery_unit')} | "
+                f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
                 f"Total: {r.get('total')} | "
                 f"Completed: {r.get('completed')} | "
                 f"Delayed: {r.get('delayed')} | "
@@ -253,7 +291,7 @@ def _build_context(data: dict) -> str:
         parts.append("\n=== Critical Equipment — Traffic Summary ===")
         for r in crit["traffic_summary"]:
             parts.append(
-                f"RU: {r.get('refinery_unit')} | "
+                f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
                 f"Red: {r.get('red_count')} | "
                 f"Yellow: {r.get('yellow_count')} | "
                 f"Green: {r.get('green_count')}"
@@ -265,8 +303,8 @@ def _build_context(data: dict) -> str:
         parts.append("--- Critical Equipment Status RED ---")
         for r in red_items[:10]:
             parts.append(
-                f"RU: {r.get('refinery_unit')} | "
-                f"Equipment: {r.get('equipment')} | "
+                f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
+                f"Equipment: {r.get('equipment_tag')} | "
                 f"Issue: {r.get('highlight_issue')} | "
                 f"Action: {r.get('corrective_action')} | "
                 f"Target: {r.get('target_corrective')}"
@@ -278,8 +316,8 @@ def _build_context(data: dict) -> str:
         parts.append("--- Critical Equipment Status YELLOW ---")
         for r in yellow_items[:8]:
             parts.append(
-                f"RU: {r.get('refinery_unit')} | "
-                f"Equipment: {r.get('equipment')} | "
+                f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
+                f"Equipment: {r.get('equipment_tag')} | "
                 f"Issue: {r.get('highlight_issue')}"
             )
 
@@ -289,7 +327,7 @@ def _build_context(data: dict) -> str:
         parts.append("\n=== Inspection Plan — Summary per RU ===")
         for r in insp["summary"]:
             parts.append(
-                f"RU: {r.get('refinery_unit')} | "
+                f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
                 f"Total Plan: {r.get('total_plan')} | "
                 f"Done: {r.get('done')} | "
                 f"Overdue: {r.get('overdue')} | "
@@ -299,8 +337,8 @@ def _build_context(data: dict) -> str:
         parts.append("--- Inspection Overdue (Top 10) ---")
         for r in insp["overdue_list"][:10]:
             parts.append(
-                f"RU: {r.get('refinery_unit')} | "
-                f"Tag: {r.get('tag_no_ln')} | "
+                f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
+                f"Tag: {r.get('equipment_tag')} | "
                 f"Type: {r.get('type_inspection')} | "
                 f"Due: {r.get('due_date')} | "
                 f"Rem Life: {r.get('result_remaining_life')} thn"
@@ -321,10 +359,10 @@ def _build_context(data: dict) -> str:
 
     pm = sap.get("pm_compliance", {})
     if pm:
-        total_pm    = int(pm.get("total_pm") or 0)
-        completed   = int(pm.get("completed_pm") or 0)
-        overdue_pm  = int(pm.get("overdue_pm") or 0)
-        rate        = round((completed / total_pm) * 100, 1) if total_pm > 0 else 0
+        total_pm   = int(pm.get("total_pm") or 0)
+        completed  = int(pm.get("completed_pm") or 0)
+        overdue_pm = int(pm.get("overdue_pm") or 0)
+        rate       = round((completed / total_pm) * 100, 1) if total_pm > 0 else 0
         parts.append(
             f"\n=== PM Compliance (PTO3) ===\n"
             f"Total PM WO: {total_pm} | "
@@ -337,7 +375,8 @@ def _build_context(data: dict) -> str:
         parts.append("\n=== Equipment Notifikasi Berulang (Leading Indicator) ===")
         for r in sap["repeated_equipment"][:10]:
             parts.append(
-                f"Equipment: {r.get('equipment')} | "
+                f"RU: {r.get('ru_name')} | "
+                f"Equipment: {r.get('equipment_tag')} | "
                 f"Location: {r.get('location')} | "
                 f"Notif Count: {r.get('notif_count')} | "
                 f"Types: {r.get('notif_types')} | "
@@ -349,9 +388,10 @@ def _build_context(data: dict) -> str:
         parts.append("\n=== WO Stagnant (REL, Overdue, Belum Selesai) ===")
         for r in sap["stagnant_wo"][:10]:
             parts.append(
+                f"RU: {r.get('ru_name')} | "
                 f"WO: {r.get('order_no')} | "
                 f"Type: {r.get('order_type')} | "
-                f"Equipment: {r.get('equipment')} | "
+                f"Equipment: {r.get('equipment_tag')} | "
                 f"Fin Date: {r.get('basic_fin_date')} | "
                 f"Criticality: {r.get('criticality')}"
             )
@@ -360,11 +400,35 @@ def _build_context(data: dict) -> str:
         parts.append("\n=== Notifikasi Kritis Tanpa WO (Backlog) ===")
         for r in sap["critical_backlog"][:10]:
             parts.append(
+                f"RU: {r.get('ru_name')} | "
                 f"Notif: {r.get('notification')} | "
                 f"Type: {r.get('notif_type')} | "
-                f"Equipment: {r.get('equipment')} | "
+                f"Equipment: {r.get('equipment_tag')} | "
                 f"Criticality: {r.get('criticality')} | "
                 f"Required End: {r.get('required_end')}"
+            )
+
+    # ── MAINTENANCE SPEND ────────────────────────────────────────────────────
+    if sap.get("spend_summary"):
+        parts.append("\n=== Maintenance Spend Summary per RU ===")
+        for r in sap["spend_summary"]:
+            parts.append(
+                f"RU: {r.get('ru_name') or r.get('plant')} | "
+                f"Total WO: {r.get('total_wo')} | "
+                f"Plan Cost: {r.get('plan_cost'):,} | "
+                f"Act Cost: {r.get('act_cost'):,} | "
+                f"Absorption: {r.get('absorption_pct')}%"
+            )
+
+    if sap.get("spend_by_ru_type"):
+        parts.append("--- Spend per RU per Order Type ---")
+        for r in sap["spend_by_ru_type"]:
+            parts.append(
+                f"RU: {r.get('ru_name') or r.get('plant')} | "
+                f"Type: {r.get('order_type')} | "
+                f"WO: {r.get('total_wo')} | "
+                f"Plan: {r.get('plan_cost'):,} | "
+                f"Act: {r.get('act_cost'):,}"
             )
 
     # ── LAPORAN BULANAN ───────────────────────────────────────────────────────
@@ -395,32 +459,40 @@ ATURAN WAJIB:
 5. Sertakan angka dan fakta AKTUAL dari analisis — bukan placeholder
 
 STRUKTUR HALAMAN:
-- <header>: Judul "Reliability Dashboard", badge mode (Weekly/Monthly), timestamp
-- <section id="kpi">: Row KPI cards (3–4 kolom)
-- <section id="sections">: Grid 2 kolom untuk section cards
-- <footer>: Catatan singkat
+- <header>: Judul "Reliability Dashboard", badge mode (Weekly/Monthly), timestamp, overall health status badge (Green/Yellow/Orange/Red)
+- <section id="kpi">: Row KPI cards (4–6 kolom)
+- <section id="ru-status">: Row RU health status cards (1 per RU, 6 RU)
+- <section id="sections">: Grid 2 kolom untuk section cards (## 1 s.d. ## 12)
+- <footer>: Data Quality & Limitation note
 
 KPI CARDS — ekstrak angka dari analisis:
-- Tampilkan 4–6 KPI yang paling relevan (ICU Open, PM Compliance %, inspection overdue, WO stagnant, dst.)
+- Tampilkan 4–6 KPI paling relevan (ICU Open, PM Compliance %, Inspection Overdue, WO Stagnant, Bad Actor Open, Critical Backlog)
 - Tiap card: angka besar (30px bold), label, sub-keterangan
-- Warna status otomatis berdasarkan kondisi:
-  - Baik  → bg #dcfce7, border #bbf7d0, nilai #15803d
+- Warna status:
+  - Baik      → bg #dcfce7, border #bbf7d0, nilai #15803d
   - Perhatian → bg #fef3c7, border #fde68a, nilai #b45309
-  - Kritis → bg #fee2e2, border #fecaca, nilai #dc2626
+  - Kritis    → bg #fee2e2, border #fecaca, nilai #dc2626
 
-SECTION CARDS (## 1 s.d. ## 6):
-- Header: "1." + judul section + badge 🔴 Kritis / 🟡 Perhatian / 🟢 Baik
-- Badge ditentukan dari kandungan section: ada angka tinggi, risiko, atau warning → merah/kuning; kondisi oke → hijau
+RU STATUS CARDS — satu card per RU:
+- Tampilkan 6 RU: RU II Dumai, RU III Plaju, RU IV Cilacap, RU V Balikpapan, RU VI Balongan, RU VII Kasim
+- Tiap card: nama RU, overall status badge (Green/Yellow/Orange/Red), 2–3 poin singkat kondisi utama
+- Warna card border sesuai status RU
+
+SECTION CARDS (## 1 s.d. ## 12):
+- Header: nomor + judul section + badge 🔴 Kritis / 🟡 Perhatian / 🟢 Baik / ⚪ Data Kurang
+- Badge ditentukan dari kandungan section
 - Isi: 3–5 bullet poin temuan terpenting; sertakan angka aktual; cetak tebal nilai kritis
-- Tiap section card boleh berbeda ukuran sesuai kepentingan (gunakan grid-column: span 2 untuk section paling kritis)
+- Section ## 1 (Executive Summary) dan ## 9 (Risk Hotspots) → grid-column: span 2
+- Section ## 11 (Management Implication) → grid-column: span 2
 
 DESAIN CSS:
-- Background: #f1f5f9; Container max-width: 1100px; margin: auto; padding: 20px 16px
+- Background: #f1f5f9; Container max-width: 1200px; margin: auto; padding: 20px 16px
 - Card: background #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,.05)
 - Font: system-ui, -apple-system, Arial, sans-serif; base 13px; line-height 1.55
 - Header accent (teal): #0d9488; teks gelap: #1e293b; teks muted: #64748b
 - Section grid: grid-template-columns: 1fr 1fr; gap: 14px
 - KPI grid: grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px
+- RU grid: grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px
 - Responsive: @media (max-width:640px) ubah semua grid menjadi 1 kolom
 - Bullet poin padat, tidak perlu banyak whitespace
 

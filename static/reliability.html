@@ -189,7 +189,6 @@
     flex: 1; padding-bottom: 6px;
     border-bottom: 1.5px solid var(--teal-100);
   }
-  .output-body h2 .src-btns { flex-shrink: 0; }
 
   .output-body strong { color: var(--slate-800); }
   .output-body p { margin: 0 0 6px; }
@@ -426,20 +425,6 @@
   }
   .src-empty  { color: var(--slate-300); font-style: italic; }
   .src-loading{ color: var(--teal-600); }
-
-  /* ── INDICATOR CHIPS (angka/% yang bisa diklik) ─────────────── */
-  /* ── SECTION SOURCE BUTTONS (di header h2) ──────────────────── */
-  .src-btns {
-    display: inline-flex; flex-wrap: wrap; gap: 4px;
-    margin-left: 8px; vertical-align: middle;
-  }
-  .src-btn {
-    font-size: 10px; padding: 2px 8px; border-radius: 10px;
-    background: var(--teal-500); color: #fff; border: none;
-    cursor: pointer; font-family: inherit; font-weight: 600;
-    transition: background .15s; line-height: 1.5; white-space: nowrap;
-  }
-  .src-btn:hover { background: var(--teal-700); }
 
   /* ── MARKDOWN TABLE ──────────────────────────────────────────────── */
   .md-table-wrap { overflow-x: auto; margin: 10px 0 14px; border-radius: 8px; border: 1px solid var(--slate-200); max-width: 100%; }
@@ -928,35 +913,6 @@
   }
 
   // ── Section → Sumber Data mapping ──────────────────────────────────────────
-  const SECTION_SOURCES = {
-    '3': [
-      { key: 'icu',       label: 'ICU' },
-      { key: 'bad_actor', label: 'Bad Actor' },
-    ],
-    '4': [
-      { key: 'boc', label: 'BOC / MTBF' },
-    ],
-    '5': [
-      { key: 'critical_eqp', label: 'Critical Eqp' },
-      { key: 'inspection',   label: 'Inspection' },
-      { key: 'bad_actor',    label: 'Bad Actor' },
-    ],
-    '6': [
-      { key: 'irkap',     label: 'IRKAP' },
-      { key: 'rcps',      label: 'RCPS' },
-      { key: 'sap_wo',    label: 'SAP WO' },
-      { key: 'sap_notif', label: 'SAP Notif' },
-    ],
-    '8': [
-      { key: 'icu',        label: 'ICU' },
-      { key: 'inspection', label: 'Inspection' },
-    ],
-    '9': [
-      { key: 'bad_actor',  label: 'Bad Actor' },
-      { key: 'rcps',       label: 'RCPS' },
-    ],
-  };
-
   function wrapIndicators(s) { return s; }
 
   function renderMd(text) {
@@ -982,13 +938,7 @@
     let html = '';
     for (const seg of segments) {
       if (seg.type === 'h2') {
-        const srcs = SECTION_SOURCES[seg.num] || [];
-        const btns = srcs.map(src => {
-          const sl = (src.label || '').replace(/"/g, '&quot;');
-          return `<button class="src-btn" data-key="${src.key}" data-label="${sl}" ` +
-                 `onclick="openSourceModal(this.dataset.key,this.dataset.label)">${esc(src.label)}</button>`;
-        }).join('');
-        html += `<h2 data-num="${esc(seg.num)}"><span class="h2-title">${esc(seg.title)}<span class="src-btns">${btns}</span></span></h2>`;
+        html += `<h2 data-num="${esc(seg.num)}"><span class="h2-title">${esc(seg.title)}</span></h2>`;
         continue;
       }
 

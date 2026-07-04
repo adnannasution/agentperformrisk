@@ -190,10 +190,11 @@
   .output-body h2 .src-btns { flex-shrink: 0; }
 
   .output-body strong { color: var(--slate-800); }
-  .output-body p { margin: 0 0 5px; }
-  .output-body ul, .output-body ol { padding-left: 20px; margin: 4px 0 8px; }
+  .output-body p { margin: 0 0 6px; }
+  .output-body ul, .output-body ol { padding-left: 20px; margin: 4px 0 10px; }
   .output-body li { margin-bottom: 4px; line-height: 1.6; }
   .output-body li + li { margin-top: 2px; }
+  .output-body * { max-width: 100%; box-sizing: border-box; }
 
   /* ── INFO PANEL ──────────────────────────────────────────────── */
   .info-panel-header {
@@ -1008,8 +1009,8 @@
   }
 
   function renderMd(text) {
-    // Pecah teks berdasarkan heading section ## N. Judul
-    const re = /^## (\d+)\. (.+)$/gm;
+    // Pecah teks berdasarkan heading section ## N. atau # N. (LLM kadang pakai 1 atau 2 hash)
+    const re = /^#{1,3} (\d+)\. (.+)$/gm;
     const segments = [];
     let cursor = 0;
     let secNum = null;
@@ -1081,11 +1082,13 @@
         return html;
       });
 
+      // Hapus separator --- / *** / ___ jangan tampil di UI
+      s = s.replace(/^-{3,}\s*$/gm, '');
       s = s.replace(/\n{2,}/g, '</p><p>');
       s = s.replace(/\n/g, ' ');
       s = '<p>' + s + '</p>';
-      s = s.replace(/<p>(<h2>|<ul>|<ol>)/g, '$1');
-      s = s.replace(/(<\/h2>|<\/ul>|<\/ol>)<\/p>/g, '$1');
+      s = s.replace(/<p>(<ul>|<ol>|<div)/g, '$1');
+      s = s.replace(/(<\/ul>|<\/ol>|<\/div>)<\/p>/g, '$1');
       s = s.replace(/<p>\s*<\/p>/g, '');
 
       html += s;

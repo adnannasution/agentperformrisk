@@ -642,12 +642,46 @@ def _get_sap_data() -> dict:
         """)
         stagnant_wo = cur.fetchall()
 
+        # Maintenance spend per RU (dari plant code)
+        cur.execute("""
+            SELECT plant,
+                   order_type,
+                   COUNT(*) AS total_wo,
+                   ROUND(COALESCE(SUM(total_plan_cost), 0)::numeric, 0) AS plan_cost,
+                   ROUND(COALESCE(SUM(total_act_cost),  0)::numeric, 0) AS act_cost
+            FROM sap_work_orders
+            WHERE plant IS NOT NULL AND plant != ''
+            GROUP BY plant, order_type
+            ORDER BY plant, order_type
+        """)
+        spend_by_ru_type = cur.fetchall()
+
+        # Spend summary per RU (all order types)
+        cur.execute("""
+            SELECT plant,
+                   COUNT(*) AS total_wo,
+                   ROUND(COALESCE(SUM(total_plan_cost), 0)::numeric, 0) AS plan_cost,
+                   ROUND(COALESCE(SUM(total_act_cost),  0)::numeric, 0) AS act_cost,
+                   ROUND(
+                       CASE WHEN COALESCE(SUM(total_plan_cost), 0) > 0
+                            THEN SUM(total_act_cost) / SUM(total_plan_cost) * 100
+                            ELSE 0 END::numeric, 1
+                   ) AS absorption_pct
+            FROM sap_work_orders
+            WHERE plant IS NOT NULL AND plant != ''
+            GROUP BY plant
+            ORDER BY act_cost DESC
+        """)
+        spend_summary = cur.fetchall()
+
         return {
             "wo_summary_by_type": [dict(r) for r in wo_summary],
             "pm_compliance":      dict(pm_compliance) if pm_compliance else {},
             "repeated_equipment": [_add_ru_name(dict(r)) for r in repeated_eq],
             "critical_backlog":   [_add_ru_name(dict(r)) for r in critical_backlog],
             "stagnant_wo":        [_add_ru_name(dict(r)) for r in stagnant_wo],
+            "spend_by_ru_type":   [_add_ru_name(dict(r)) for r in spend_by_ru_type],
+            "spend_summary":      [_add_ru_name(dict(r)) for r in spend_summary],
         }
 
 

@@ -970,7 +970,18 @@
         document.getElementById('lastRun').textContent = `Terakhir: ${new Date().toLocaleString('id-ID')}`;
         _dashLoaded = false;
         if (activeOutputTab === 'dashboard') {
-          _applyDashboard(data.dashboard_html || '');
+          const dhtml = data.dashboard_html || '';
+          if (dhtml.trim().length > 100) {
+            _applyDashboard(dhtml);
+          } else {
+            const errMsg = data.dashboard_error || '';
+            const db = document.getElementById('dashboardBody');
+            if (errMsg) {
+              db.innerHTML = `<div class="dashboard-empty">❌ Dashboard LLM Error:<br><code style="font-size:11px;color:#dc2626">${esc(errMsg)}</code></div>`;
+            } else {
+              loadDashboard();
+            }
+          }
         }
         loadHistory(activeFilter);
       } else {

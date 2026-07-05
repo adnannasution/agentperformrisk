@@ -789,17 +789,21 @@ def run_reliability_agent(mode: str = "weekly", ru: str = None) -> dict:
         f"Buat HTML dashboard dari hasil analisis reliability {scope_label}{label} berikut:\n\n"
         f"{analysis_content}"
     )
+    dashboard_error = ""
     try:
         dashboard_response = llm_dashboard.invoke([
             {"role": "system", "content": dash_system},
             {"role": "user",   "content": dashboard_user_msg},
         ])
         dashboard_html = _extract_html(dashboard_response.content)
-    except Exception:
+    except Exception as e:
+        print(f"[Dashboard LLM Error] {e}")
         dashboard_html = ""
+        dashboard_error = str(e)
 
     return {
         "content":        analysis_content,
+        "dashboard_error": dashboard_error,
         "dashboard_html": dashboard_html,
         "mode":           mode,
         "ru":             ru,

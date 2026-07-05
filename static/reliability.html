@@ -829,49 +829,91 @@
   let activeMode   = 'weekly';
   let activeFilter = '';
   let activeRU     = '';   // '' = Overall
-  // Cache hasil per RU key: `${mode}::${ru}` → { content, dashboard_html, title }
+  const RU_LIST = ["RU II Dumai","RU III Plaju","RU IV Cilacap","RU V Balikpapan","RU VI Balongan","RU VII Kasim"];
+  // Cache hasil per RU key: `${mode}::${ru}` → { content, dashboard_html, dashboard_error, title, output_id }
   const ruResults  = {};
-
-  function selectMode(mode) {
-    activeMode = mode;
-    document.getElementById('tabWeekly').classList.toggle('active', mode === 'weekly');
-    document.getElementById('tabMonthly').classList.toggle('active', mode === 'monthly');
-    document.getElementById('modeDisplay').textContent = mode === 'weekly' ? 'Weekly' : 'Monthly';
-    // show cached result for new mode+ru if available
-    _showCachedOrEmpty();
-  }
-
-  function selectRU(btn) {
-    activeRU = btn.dataset.ru;
-    document.querySelectorAll('.ru-tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('scopeDisplay').textContent = activeRU || 'Overall';
-    _showCachedOrEmpty();
-  }
 
   function _ruKey() { return `${activeMode}::${activeRU}`; }
 
-  function _showCachedOrEmpty() {
-    const cached = ruResults[_ruKey()];
+  // ── Sinkronisasi tampilan tombol mode & RU dengan state ──────────────────────
+  function _syncControls() {
+    document.getElementById('tabWeekly').classList.toggle('active', activeMode === 'weekly');
+    document.getElementById('tabMonthly').classList.toggle('active', activeMode === 'monthly');
+    document.getElementById('modeDisplay').textContent = activeMode === 'weekly' ? 'Weekly' : 'Monthly';
+    document.querySelectorAll('.ru-tab').forEach(b => b.classList.toggle('active', b.dataset.ru === activeRU));
+    document.getElementById('scopeDisplay').textContent = activeRU || 'Overall';
+  }
+
+  function selectMode(mode) {
+    if (mode === activeMode) return;
+    activeMode = mode;
+    _syncControls();
+    render();
+  }
+
+  function selectRU(btn) {
+    if (btn.dataset.ru === activeRU) return;
+    activeRU = btn.dataset.ru;
+    _syncControls();
+    render();
+  }
+
+  // ── Sumber kebenaran tunggal: apa yang ditampilkan selalu diturunkan dari state ──
+  function render() {
+    const cached = ruResults[_ruKey()] || null;
+    currentOutputId = cached ? (cached.output_id || null) : null;
+
     const output = document.getElementById('outputBody');
+    const dashBody = document.getElementById('dashboardBody');
     const badge  = document.getElementById('outputBadge');
     const title  = document.getElementById('outputTitle');
+
+    // Konten analisis
     if (cached) {
       output.className  = 'output-body';
       output.innerHTML  = renderMd(cached.content);
       badge.className   = `badge ${activeMode}`;
       badge.textContent = activeMode === 'weekly' ? 'Weekly' : 'Monthly';
-      title.textContent = cached.title;
-      if (activeOutputTab === 'dashboard') {
-        if (currentOutputId) _applyDashboardUrl(currentOutputId);
-        else _applyDashboard(cached.dashboard_html);
-      }
+      title.textContent = cached.title || '';
     } else {
-      output.className = 'output-body empty';
-      output.innerHTML = 'Jalankan agent untuk melihat hasil analisis.';
-      badge.className  = 'badge'; badge.textContent = '';
+      output.className  = 'output-body empty';
+      output.innerHTML  = `Belum ada hasil untuk <b>${activeRU || 'Overall'}</b> (${activeMode === 'weekly' ? 'Weekly' : 'Monthly'}). Klik “Jalankan Agent” untuk membuat.`;
+      badge.className   = 'badge'; badge.textContent = '';
       title.textContent = '';
-      if (activeOutputTab === 'dashboard') loadDashboard();
+    }
+
+    // Visibilitas tab
+    document.getElementById('tabAnalisis').classList.toggle('active', activeOutputTab === 'analisis');
+    document.getElementById('tabDashboard').classList.toggle('active', activeOutputTab === 'dashboard');
+    if (activeOutputTab === 'analisis') {
+      output.classList.remove('hide');
+      dashBody.classList.remove('show');
+    } else {
+      output.classList.add('hide');
+      dashBody.classList.add('show');
+      _renderDashboard(cached);
+    }
+  }
+
+  // ── Render panel Dashboard sesuai scope aktif (selalu cocok dengan analisis) ──
+  function _renderDashboard(cached) {
+    const body = document.getElementById('dashboardBody');
+    const hasHtml = cached && cached.dashboard_html && cached.dashboard_html.trim().length > 100;
+    if (hasHtml && cached.output_id) {
+      _applyDashboardUrl(cached.output_id);
+      return;
+    }
+    if (hasHtml) {
+      _applyDashboard(cached.dashboard_html);
+      return;
+    }
+    // Tidak ada infografis untuk scope ini
+    if (cached && cached.dashboard_error) {
+      body.innerHTML = `<div class="dashboard-empty">⚠️ Infografis gagal dibuat:<br><code style="font-size:11px;color:#dc2626">${esc(cached.dashboard_error)}</code><br><br>Coba jalankan ulang agent.</div>`;
+    } else if (cached) {
+      body.innerHTML = '<div class="dashboard-empty">📊 Infografis belum tersedia untuk hasil ini.</div>';
+    } else {
+      body.innerHTML = `<div class="dashboard-empty">📊 Belum ada infografis untuk <b>${activeRU || 'Overall'}</b> (${activeMode === 'weekly' ? 'Weekly' : 'Monthly'}). Jalankan agent untuk membuatnya.</div>`;
     }
   }
 
@@ -963,42 +1005,23 @@
       });
       const data = await res.json();
       if (data.success) {
-        currentOutputId  = data.output_id;
-        // cache result
+        // cache result (single source of truth) lalu render
         ruResults[_ruKey()] = {
-          content:       data.content,
+          content:        data.content,
           dashboard_html: data.dashboard_html || '',
-          title:         data.title,
+          dashboard_error: data.dashboard_error || '',
+          title:          data.title,
+          output_id:      data.output_id,
         };
-        // mark RU tab as has-result
+        // tandai RU tab punya hasil
         document.querySelectorAll('.ru-tab').forEach(b => {
           if (b.dataset.ru === activeRU) b.classList.add('has-result');
         });
-        output.className  = 'output-body';
-        output.innerHTML  = renderMd(data.content);
-        badge.className   = `badge ${activeMode}`;
-        badge.textContent = activeMode === 'weekly' ? 'Weekly' : 'Monthly';
-        title.textContent = data.title;
         document.getElementById('lastRun').textContent = `Terakhir: ${new Date().toLocaleString('id-ID')}`;
-        _dashLoaded = false;
-        if (activeOutputTab === 'dashboard') {
-          const dhtml = data.dashboard_html || '';
-          if (dhtml.trim().length > 100 && currentOutputId) {
-            _applyDashboardUrl(currentOutputId);   // muat dari endpoint same-origin (paling andal)
-          } else if (dhtml.trim().length > 100) {
-            _applyDashboard(dhtml);
-          } else {
-            const errMsg = data.dashboard_error || '';
-            const db = document.getElementById('dashboardBody');
-            if (errMsg) {
-              db.innerHTML = `<div class="dashboard-empty">❌ Dashboard LLM Error:<br><code style="font-size:11px;color:#dc2626">${esc(errMsg)}</code></div>`;
-            } else {
-              loadDashboard();
-            }
-          }
-        }
+        render();
         loadHistory(activeFilter);
       } else {
+        output.className = 'output-body';
         output.innerHTML = `<span style="color:var(--red-600)">❌ ${esc(data.error)}</span>`;
       }
     } catch(e) {
@@ -1205,23 +1228,27 @@
 
   async function loadDetail(id) {
     const output = document.getElementById('outputBody');
-    const badge  = document.getElementById('outputBadge');
-    const title  = document.getElementById('outputTitle');
     output.className='output-body';
     output.innerHTML='<span style="color:var(--slate-400)">⏳ Memuat...</span>';
-    badge.className='badge';
     try {
       const res  = await fetch(`/reliability/history/${id}`);
       const data = await res.json();
       if (data.success) {
-        currentOutputId   = id;
         const item = data.data;
-        const isM  = item.output_type === 'reliability_monthly';
-        output.innerHTML  = renderMd(item.content);
-        badge.className   = `badge ${isM?'monthly':'weekly'}`;
-        badge.textContent = isM ? 'Monthly' : 'Weekly';
-        title.textContent = item.title || '';
-        refreshDashboard();
+        // Turunkan mode & RU dari output agar kontrol dan body konsisten
+        activeMode = (item.output_type && item.output_type.indexOf('monthly') !== -1) ? 'monthly' : 'weekly';
+        activeRU = '';
+        for (const ru of RU_LIST) { if ((item.title || '').includes(ru)) { activeRU = ru; break; } }
+        _syncControls();
+        // Simpan ke cache di key yang sesuai lalu render
+        ruResults[_ruKey()] = {
+          content:        item.content,
+          dashboard_html: item.dashboard_html || '',
+          dashboard_error: '',
+          title:          item.title || '',
+          output_id:      id,
+        };
+        render();
         window.scrollTo({top:0, behavior:'smooth'});
       } else {
         output.innerHTML=`<span style="color:var(--red-600)">❌ ${esc(data.error)}</span>`;
@@ -1239,71 +1266,14 @@
   let _dashLoaded      = false;
 
   function switchOutputTab(tab) {
+    if (tab === activeOutputTab) return;
     activeOutputTab = tab;
-    document.getElementById('tabAnalisis').classList.toggle('active', tab === 'analisis');
-    document.getElementById('tabDashboard').classList.toggle('active', tab === 'dashboard');
-    const outputBody = document.getElementById('outputBody');
-    const dashBody   = document.getElementById('dashboardBody');
-    if (tab === 'analisis') {
-      outputBody.classList.remove('hide');
-      dashBody.classList.remove('show');
-    } else {
-      outputBody.classList.add('hide');
-      dashBody.classList.add('show');
-      // prefer LLM-generated infographic if available
-      const cached = ruResults[_ruKey()];
-      if (cached && cached.dashboard_html && cached.dashboard_html.trim().length > 100 && currentOutputId) {
-        _applyDashboardUrl(currentOutputId);
-      } else if (cached && cached.dashboard_html && cached.dashboard_html.trim().length > 100) {
-        _applyDashboard(cached.dashboard_html);
-      } else {
-        _dashLoaded = false;      // selalu reload fresh saat buka tab Dashboard
-        loadDashboard();          // fallback: live SVG charts from DB
-      }
-    }
+    render();
   }
 
-  // ── Infographic Dashboard ─────────────────────────────────────────────────
+  // Refresh infografis untuk scope aktif (dipakai tombol refresh, dsb.)
   function refreshDashboard() {
-    _dashLoaded = false;
-    if (activeOutputTab === 'dashboard') loadDashboard();
-  }
-
-  async function loadDashboard() {
-    if (_dashLoaded) return;
-    const body = document.getElementById('dashboardBody');
-
-    // If we have a cached LLM result, show it (prefer same-origin endpoint when ada output id)
-    const cached = ruResults[_ruKey()];
-    if (cached && cached.dashboard_html && cached.dashboard_html.trim().length > 100) {
-      if (currentOutputId) _applyDashboardUrl(currentOutputId);
-      else _applyDashboard(cached.dashboard_html);
-      return;
-    }
-    // If there's a currentOutputId, cek apakah punya infografis lalu muat dari endpoint same-origin
-    if (currentOutputId) {
-      body.innerHTML = '<div class="dashboard-loading">⏳ Memuat infografis...</div>';
-      try {
-        const res  = await fetch(`/reliability/history/${currentOutputId}`);
-        const data = await res.json();
-        if (data.success && data.data.dashboard_html && data.data.dashboard_html.trim().length > 100) {
-          _applyDashboardUrl(currentOutputId);
-          return;
-        }
-      } catch(_) {}
-    }
-    // Fallback: live SVG charts from DB
-    body.innerHTML = '<div class="dashboard-loading">⏳ Memuat chart dari database...</div>';
-    try {
-      const res  = await fetch('/reliability/dashboard-stats');
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Gagal memuat');
-      _dashLoaded = true;
-      body.innerHTML = buildInfographic(data.data);
-      initDashTooltips();
-    } catch(e) {
-      body.innerHTML = `<div class="dashboard-empty">❌ ${esc(e.message)}</div>`;
-    }
+    if (activeOutputTab === 'dashboard') _renderDashboard(ruResults[_ruKey()] || null);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1577,7 +1547,7 @@
     return `<div class="dash-wrap">
       <div class="dash-hdr">
         <span class="dash-hdr-title">📊 Reliability Infographic — Live Data</span>
-        <button class="dash-refresh" onclick="_dashLoaded=false;loadDashboard()">↻ Refresh</button>
+        <button class="dash-refresh" onclick="refreshDashboard()">↻ Refresh</button>
       </div>
       ${kpiRow}
       <div class="dash-row dash-row-3">${pafChart}${rcpsChart}</div>

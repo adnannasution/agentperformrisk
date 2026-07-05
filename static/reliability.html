@@ -986,12 +986,28 @@
   }
 
   // ── Run Agent ───────────────────────────────────────────────────────────────
+  const RUN_PIN = '128128';
   async function runAgent() {
     const btn    = document.getElementById('btnRun');
     const output = document.getElementById('outputBody');
     const badge  = document.getElementById('outputBadge');
     const title  = document.getElementById('outputTitle');
     const scopeLabel = activeRU || 'Overall';
+    const modeLabel  = activeMode === 'weekly' ? 'Weekly' : 'Monthly';
+
+    // Konfirmasi mode & scope sebelum menjalankan
+    const ok = window.confirm(
+      `Jalankan Agent?\n\n` +
+      `• Mode  : ${modeLabel}\n` +
+      `• Scope : ${scopeLabel}\n\n` +
+      `Proses ini akan menganalisis data dari database dan membuat infografis.`
+    );
+    if (!ok) return;
+
+    // PIN untuk menjalankan agent
+    const pin = window.prompt('🔒 Masukkan PIN untuk menjalankan agent:');
+    if (pin === null) return;
+    if (pin !== RUN_PIN) { window.alert('❌ PIN salah. Agent tidak dijalankan.'); return; }
 
     btn.disabled = true; btn.classList.add('loading');
     output.className = 'output-body';
@@ -1210,7 +1226,7 @@
         list.innerHTML = '<div class="empty-state">Belum ada riwayat output.</div>'; return;
       }
       list.innerHTML = data.data.map(item => {
-        const isM  = item.output_type === 'reliability_monthly';
+        const isM  = (item.output_type || '').indexOf('monthly') !== -1;
         const cls  = isM ? 'monthly' : 'weekly';
         const lbl  = isM ? 'Monthly' : 'Weekly';
         const date = new Date(item.created_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});

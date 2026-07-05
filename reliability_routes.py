@@ -187,6 +187,21 @@ def get_history_detail(output_id):
         return jsonify({"error": str(e)}), 500
 
 
+@reliability_bp.route("/reliability/dashboard-html/<int:output_id>", methods=["GET"])
+def get_dashboard_html(output_id):
+    """Serve raw HTML infografis dari DB sebagai dokumen same-origin (untuk iframe src)."""
+    try:
+        row = fetch_reliability_output_detail(output_id)
+        if not row:
+            return "Output tidak ditemukan", 404
+        html = dict(row).get("dashboard_html") or ""
+        if not html.strip():
+            return "<html><body style='font-family:sans-serif;padding:24px;color:#64748b'>Infografis belum tersedia untuk output ini.</body></html>", 200, {"Content-Type": "text/html; charset=utf-8"}
+        return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+    except Exception as e:
+        return f"Error: {e}", 500
+
+
 @reliability_bp.route("/reliability/source-data/<source_key>", methods=["GET"])
 def get_source_data(source_key):
     """Kembalikan baris data mentah untuk modal 'Lihat Sumber Data'."""

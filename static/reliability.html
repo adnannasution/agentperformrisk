@@ -916,12 +916,12 @@
     const db = document.getElementById('dashboardBody');
     const iframe = document.createElement('iframe');
     iframe.style.cssText = 'width:100%;border:none;border-radius:8px;display:block;min-height:800px';
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+    // Template infografis murni HTML/CSS (tanpa JS) → cukup allow-same-origin.
+    // Pakai srcdoc (bukan blob URL) agar tidak diblokir CSP frame-src di produksi.
+    iframe.setAttribute('sandbox', 'allow-same-origin');
     db.innerHTML = '';
     db.appendChild(iframe);
-    // write via srcdoc blob to avoid attribute length issues
-    const blob = new Blob([html], {type:'text/html'});
-    iframe.src = URL.createObjectURL(blob);
+    iframe.srcdoc = html;
     iframe.onload = () => {
       try {
         const h = iframe.contentDocument.documentElement.scrollHeight;

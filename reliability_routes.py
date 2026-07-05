@@ -146,6 +146,7 @@ def run_agent():
             "ru":             ru,
             "content":        result["content"],
             "dashboard_html": result.get("dashboard_html", ""),
+            "dashboard_error": result.get("dashboard_error", ""),
         })
 
     except Exception as e:

@@ -858,9 +858,61 @@
     render();
   }
 
+  // Turunkan mode & RU dari sebuah item history
+  function _itemMode(item) { return (item.output_type || '').indexOf('monthly') !== -1 ? 'monthly' : 'weekly'; }
+  function _itemRU(item) {
+    for (const ru of RU_LIST) { if ((item.title || '').includes(ru)) return ru; }
+    return '';
+  }
+
+  // Ambil hasil generate TERAKHIR dari database untuk scope (mode+ru) aktif
+  async function _loadLatestForScope(key) {
+    const sep = key.indexOf('::');
+    const kMode = key.slice(0, sep);
+    const kRU   = key.slice(sep + 2);
+    try {
+      const res  = await fetch('/reliability/history?limit=50');
+      const data = await res.json();
+      const items = (data && data.data) || [];
+      const match = items.find(it => _itemMode(it) === kMode && _itemRU(it) === kRU);
+      if (!match) { ruResults[key] = { empty: true }; render(); return; }
+      const dres  = await fetch(`/reliability/history/${match.id}`);
+      const ddata = await dres.json();
+      if (!ddata.success) { ruResults[key] = { empty: true }; render(); return; }
+      const item = ddata.data;
+      ruResults[key] = {
+        content:        item.content,
+        dashboard_html: item.dashboard_html || '',
+        dashboard_error: '',
+        title:          item.title || '',
+        output_id:      match.id,
+      };
+      render();
+    } catch (_) {
+      ruResults[key] = { empty: true };
+      render();
+    }
+  }
+
   // ── Sumber kebenaran tunggal: apa yang ditampilkan selalu diturunkan dari state ──
   function render() {
-    const cached = ruResults[_ruKey()] || null;
+    const key = _ruKey();
+    const raw = ruResults[key];
+
+    // Belum pernah dimuat untuk scope ini → coba ambil hasil terakhir dari DB
+    if (raw === undefined) {
+      const output = document.getElementById('outputBody');
+      output.className = 'output-body';
+      output.innerHTML = '<span style="color:var(--slate-400)">⏳ Memuat hasil terakhir…</span>';
+      if (activeOutputTab === 'dashboard') {
+        document.getElementById('dashboardBody').innerHTML = '<div class="dashboard-loading">⏳ Memuat…</div>';
+      }
+      _syncTabVisibility();
+      _loadLatestForScope(key);
+      return;
+    }
+
+    const cached = (raw && !raw.empty) ? raw : null;
     currentOutputId = cached ? (cached.output_id || null) : null;
 
     const output = document.getElementById('outputBody');
@@ -883,6 +935,13 @@
     }
 
     // Visibilitas tab
+    _syncTabVisibility();
+    if (activeOutputTab === 'dashboard') _renderDashboard(cached);
+  }
+
+  function _syncTabVisibility() {
+    const output   = document.getElementById('outputBody');
+    const dashBody = document.getElementById('dashboardBody');
     document.getElementById('tabAnalisis').classList.toggle('active', activeOutputTab === 'analisis');
     document.getElementById('tabDashboard').classList.toggle('active', activeOutputTab === 'dashboard');
     if (activeOutputTab === 'analisis') {
@@ -891,7 +950,6 @@
     } else {
       output.classList.add('hide');
       dashBody.classList.add('show');
-      _renderDashboard(cached);
     }
   }
 

@@ -914,7 +914,20 @@
   function _applyDashboard(html) {
     if (!html || html.trim().length < 100) return;
     const db = document.getElementById('dashboardBody');
-    db.innerHTML = `<iframe srcdoc="${html.replace(/"/g,'&quot;')}" style="width:100%;min-height:700px;border:none;border-radius:8px;display:block"></iframe>`;
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width:100%;border:none;border-radius:8px;display:block;min-height:800px';
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+    db.innerHTML = '';
+    db.appendChild(iframe);
+    // write via srcdoc blob to avoid attribute length issues
+    const blob = new Blob([html], {type:'text/html'});
+    iframe.src = URL.createObjectURL(blob);
+    iframe.onload = () => {
+      try {
+        const h = iframe.contentDocument.documentElement.scrollHeight;
+        if (h > 400) iframe.style.height = (h + 40) + 'px';
+      } catch(_) {}
+    };
     _dashLoaded = true;
   }
 

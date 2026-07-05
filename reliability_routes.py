@@ -9,7 +9,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, send_from_directory
 
 from docx import Document
-from reliability_agent import run_reliability_agent
+from reliability_agent import run_reliability_agent, _assemble_dashboard
 from reliability_data import save_laporan_bulanan, ensure_reliability_schema, get_source_rows, get_dashboard_data
 from db import (
     save_reliability_output,
@@ -198,23 +198,10 @@ def get_dashboard_html(output_id):
         ctype = {"Content-Type": "text/html; charset=utf-8"}
         if not html.strip():
             return "<html><body style='font-family:sans-serif;padding:24px;color:#64748b'>Infografis belum tersedia untuk output ini. Jalankan agent untuk membuatnya.</body></html>", 200, ctype
-        # Deteksi HTML terpotong (kena batas token) — jangan tampil blank diam-diam
-        if "</html>" not in html.lower():
-            if "</body>" not in html.lower():
-                html = html + "\n</body></html>"
-            else:
-                html = html + "\n</html>"
-            banner = ("<div style=\"font-family:sans-serif;background:#fef2f2;color:#dc2626;"
-                      "border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin:16px;font-size:13px\">"
-                      "⚠️ Infografis ini terpotong saat dibuat (kena batas token). "
-                      "Silakan jalankan ulang agent untuk versi lengkap.</div>")
-            # sisipkan banner tepat setelah <body>
-            low = html.lower()
-            bi = low.find("<body")
-            if bi != -1:
-                bend = low.find(">", bi)
-                if bend != -1:
-                    html = html[:bend+1] + banner + html[bend+1:]
+        # Rakit ulang dengan kerangka + CSS terbaru saat disajikan, agar perbaikan CSS
+        # (mis. responsif/no-scroll) langsung berlaku untuk semua output, termasuk yang lama.
+        # _assemble_dashboard mengambil isi <body> lalu membungkusnya dengan shell terkini.
+        html = _assemble_dashboard(html)
         return html, 200, ctype
     except Exception as e:
         return f"Error: {e}", 500

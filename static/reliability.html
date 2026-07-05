@@ -439,6 +439,17 @@
   .md-table tr:last-child td { border-bottom: none; }
   .md-table tr:hover td { background: var(--slate-50); }
 
+  /* ── ANGKA BUKTI (clickable) ─────────────────────────────────── */
+  .num-src {
+    cursor: pointer;
+    color: var(--teal-700, #0f766e);
+    font-weight: 700;
+    border-bottom: 1px dashed var(--teal-500, #14b8a6);
+    padding: 0 1px;
+    transition: background .15s;
+  }
+  .num-src:hover { background: #ccfbf1; border-radius: 3px; }
+
   /* ── OUTPUT TABS ─────────────────────────────────────────────── */
   .output-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--slate-200); margin-bottom: 14px; }
   .output-tab {
@@ -830,6 +841,21 @@
   let activeFilter = '';
   let activeRU     = '';   // '' = Overall
   const RU_LIST = ["RU II Dumai","RU III Plaju","RU IV Cilacap","RU V Balikpapan","RU VI Balongan","RU VII Kasim"];
+  // Penanda angka bukti [[key|ru|angka]] → sumber data (source_key + label modal)
+  const SRC_LABELS = {
+    icu:        { key:'icu',          label:'ICU Open' },
+    bad_actor:  { key:'bad_actor',    label:'Bad Actor' },
+    inspection: { key:'inspection',   label:'Inspection Overdue' },
+    wo:         { key:'sap_wo',       label:'Work Order (SAP)' },
+    notif:      { key:'sap_notif',    label:'Notification (SAP)' },
+    rcps:       { key:'rcps',         label:'RCPS' },
+    paf:        { key:'paf',          label:'PAF' },
+    boc:        { key:'boc',          label:'BOC / MTBF' },
+    irkap:      { key:'irkap',        label:'IRKAP' },
+    oa:         { key:'oa',           label:'OA Monitoring' },
+    plo:        { key:'plo',          label:'PLO Monitoring' },
+    critical:   { key:'critical_eqp', label:'Critical Equipment' },
+  };
   // Cache hasil per RU key: `${mode}::${ru}` → { content, dashboard_html, dashboard_error, title, output_id }
   const ruResults  = {};
 
@@ -1138,6 +1164,14 @@
       let s = seg.text
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
+      // Angka bukti: penanda [[key|ru|angka]] → chip yang bisa diklik untuk lihat baris sumber
+      s = s.replace(/\[\[([a-z_]+)\|([^|\]]*)\|([^\]]+)\]\]/g, (m, key, ru, num) => {
+        const map = SRC_LABELS[key];
+        if (!map) return esc(num);        // key tak dikenal → tampilkan angkanya saja
+        const ruArg = ru ? ru.trim() : '';
+        return `<a class="num-src" title="Klik untuk lihat ${esc(map.label)} baris sumber${ruArg ? ' — ' + esc(ruArg) : ''}" `
+             + `onclick="openSourceModal('${map.key}','${esc(map.label)}','${esc(ruArg)}')">${esc(num)}</a>`;
+      });
 
       s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 
@@ -1190,7 +1224,7 @@
   }
 
   // ── Source Data Modal ────────────────────────────────────────────────────────
-  async function openSourceModal(key, label) {
+  async function openSourceModal(key, label, ruOverride) {
     const overlay = document.getElementById('srcOverlay');
     const sheet   = document.getElementById('srcSheet');
     const titleEl = document.getElementById('srcTitle');
@@ -1206,7 +1240,9 @@
     document.body.style.overflow = 'hidden';
 
     try {
-      const ruParam = activeRU ? `?ru=${encodeURIComponent(activeRU)}` : '';
+      // ruOverride (dari angka bukti yang diklik) diprioritaskan; jika undefined pakai activeRU
+      const ru = (ruOverride !== undefined && ruOverride !== null) ? ruOverride : activeRU;
+      const ruParam = ru ? `?ru=${encodeURIComponent(ru)}` : '';
       const res  = await fetch(`/reliability/source-data/${encodeURIComponent(key)}${ruParam}`);
       const data = await res.json();
       if (data.success) {

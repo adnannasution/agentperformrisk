@@ -1241,7 +1241,8 @@
       if (cached && cached.dashboard_html && cached.dashboard_html.trim().length > 100) {
         _applyDashboard(cached.dashboard_html);
       } else {
-        loadDashboard(); // fallback: live SVG charts from DB
+        _dashLoaded = false;      // selalu reload fresh saat buka tab Dashboard
+        loadDashboard();          // fallback: live SVG charts from DB
       }
     }
   }

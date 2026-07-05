@@ -530,34 +530,44 @@ def _build_context(data: dict, ru: str = None) -> str:
 # DASHBOARD HTML PROMPT
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Muat template infografis referensi (contoh gaya/struktur yang diinginkan)
-_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "dashboard_template.html")
-try:
-    with open(_TEMPLATE_PATH, "r", encoding="utf-8") as _tf:
-        _DASHBOARD_TEMPLATE = _tf.read()
-except Exception:
-    _DASHBOARD_TEMPLATE = ""
+# Kerangka HTML + CSS disediakan aplikasi (TIDAK digenerate LLM) agar output LLM
+# kecil dan tidak pernah terpotong. LLM hanya mengisi bagian dalam <body>.
+_DIR = os.path.dirname(__file__)
 
 
-_DASHBOARD_INSTRUCTION = """Kamu adalah front-end engineer yang membuat infografis HTML laporan reliability kilang Pertamina.
+def _load(name: str) -> str:
+    try:
+        with open(os.path.join(_DIR, name), "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception:
+        return ""
 
-Di bawah ini ada CONTOH TEMPLATE HTML lengkap yang menjadi STANDAR desain wajib. Tugasmu:
-1. Hasilkan HTML BARU dengan struktur, CSS, font, warna, layout, dan komponen yang PERSIS SAMA seperti template.
-2. GANTI semua isi data (nama RU, angka KPI, status, risk signals, spend, hotspot, trend, management action, data quality, footer) dengan nilai NYATA dari hasil analisis yang diberikan.
-3. Jangan menambah library/CDN/resource eksternal. Semua CSS tetap inline di <style>.
-4. Pertahankan semua class CSS dan komponen (KPI cards, risk bars, trend grid, spend bars, tabel hotspot, RCPS alert, management table, data quality, footer).
-5. Sesuaikan jumlah baris tabel/bar dengan data yang tersedia. Jika suatu data tidak ada di analisis, tulis "N/A" atau hilangkan barisnya — jangan mengarang angka.
-6. Untuk mode OVERALL/Nasional: ubah judul header jadi nama scope nasional (mis. "Reliability Health Review — Nasional") dan tampilkan status/breakdown per RU jika relevan. Untuk mode per-RU: gunakan nama RU tersebut.
 
-ATURAN OUTPUT: Kembalikan HANYA kode HTML mentah mulai dari <!DOCTYPE html> sampai </html>. Tanpa markdown fence, tanpa penjelasan. Pastikan HTML SELESAI lengkap sampai </html>. Semua teks dalam Bahasa Indonesia.
+_SHELL_HEAD    = _load("dashboard_shell_head.html")     # <!DOCTYPE>..<style>..</style></head><body>
+_SHELL_TAIL    = _load("dashboard_shell_tail.html")     # </body></html>
+_BODY_EXAMPLE  = _load("dashboard_body_example.html")   # contoh isi body (pakai class yang tersedia)
 
-═══════════ CONTOH TEMPLATE (TIRU PERSIS GAYA & STRUKTUR INI) ═══════════
-""" + _DASHBOARD_TEMPLATE + """
-═══════════ AKHIR CONTOH TEMPLATE ═══════════
 
-Sekarang buat HTML baru dengan gaya identik, berisi data dari analisis di bawah ini."""
+_DASHBOARD_INSTRUCTION = """Kamu adalah front-end engineer yang mengisi konten infografis reliability kilang Pertamina.
 
-# Kedua mode memakai instruksi + template yang sama; adaptasi scope dijelaskan di user message
+CSS dan kerangka halaman SUDAH disediakan sistem — kamu TIDAK perlu menulis <style>, <head>, atau <html>.
+Tugasmu: hasilkan HANYA isi bagian dalam <body> (potongan HTML) memakai class CSS yang sudah ada.
+
+Di bawah ada CONTOH ISI BODY sebagai standar struktur & class yang WAJIB kamu ikuti. Tugasmu:
+1. Hasilkan isi body BARU dengan struktur, class, layout, dan komponen PERSIS SAMA seperti contoh.
+2. GANTI semua data (nama RU/scope, angka KPI, status, risk signals, spend, hotspot, trend, management action, data quality, footer) dengan nilai NYATA dari hasil analisis.
+3. Pakai HANYA class yang muncul di contoh (.header, .kpi-card, .risk-row, .trend-item, .spend-row, .hotspot-table, .mgmt-table, .badge, dll). Jangan buat CSS baru.
+4. Sesuaikan jumlah baris tabel/bar dengan data. Jika data tidak ada, tulis "N/A" atau hilangkan barisnya — jangan mengarang angka.
+5. Mode OVERALL/Nasional: judul header jadi nama scope nasional (mis. "Reliability Health Review — Nasional") + tampilkan breakdown per RU bila relevan. Mode per-RU: pakai nama RU tersebut.
+
+ATURAN OUTPUT: Kembalikan HANYA potongan HTML isi body (mulai dari <header ...> sampai elemen terakhir seperti <footer>). TANPA <!DOCTYPE>, TANPA <html>, TANPA <head>, TANPA <style>, TANPA <body>. Tanpa markdown fence. Tanpa penjelasan. Semua teks Bahasa Indonesia.
+
+═══════════ CONTOH ISI BODY (TIRU STRUKTUR & CLASS INI) ═══════════
+""" + _BODY_EXAMPLE + """
+═══════════ AKHIR CONTOH ═══════════
+
+Sekarang buat isi body BARU dengan struktur/class identik, berisi data dari analisis di bawah ini."""
+
 _DASHBOARD_SYSTEM_OVERALL = _DASHBOARD_INSTRUCTION
 _DASHBOARD_SYSTEM_PER_RU  = _DASHBOARD_INSTRUCTION
 
@@ -573,6 +583,20 @@ def _extract_html(raw: str) -> str:
             inner = inner[:-1]
         s = "\n".join(inner).strip()
     return s
+
+
+def _assemble_dashboard(body_html: str) -> str:
+    """Gabungkan isi body dari LLM dengan kerangka + CSS aplikasi menjadi HTML lengkap."""
+    body = body_html.strip()
+    # Buang tag dokumen jika LLM terlanjur menuliskannya
+    low = body.lower()
+    if "<body" in low:
+        body = body[low.index("<body"):]
+        body = body[body.index(">") + 1:]
+        low = body.lower()
+    if "</body>" in low:
+        body = body[:low.index("</body>")]
+    return _SHELL_HEAD + "\n" + body.strip() + "\n" + _SHELL_TAIL
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -649,7 +673,7 @@ def run_reliability_agent(mode: str = "weekly", ru: str = None) -> dict:
     print(f"[Dashboard LLM] sending analysis length={len(analysis_for_dash)} chars")
     scope_desc = f"Refinery Unit: {ru}" if ru else "Scope: Nasional / Seluruh RU (Overall)"
     dashboard_user_msg = (
-        f"Buat HTML infografis ({scope_label}{label}) dengan gaya IDENTIK seperti contoh template, "
+        f"Buat isi body infografis ({scope_label}{label}) dengan struktur/class IDENTIK seperti contoh, "
         f"berisi data dari analisis reliability berikut.\n"
         f"{scope_desc}\n\n"
         f"=== HASIL ANALISIS ===\n{analysis_for_dash}"
@@ -661,10 +685,20 @@ def run_reliability_agent(mode: str = "weekly", ru: str = None) -> dict:
             {"role": "user",   "content": dashboard_user_msg},
         ])
         raw_content = dashboard_response.content or ""
-        print(f"[Dashboard LLM] response length={len(raw_content)}, preview={raw_content[:300]!r}")
-        dashboard_html = _extract_html(raw_content)
-        if len(dashboard_html) < 100:
-            dashboard_error = f"HTML terlalu pendek ({len(dashboard_html)} chars). Preview: {raw_content[:200]!r}"
+        finish = getattr(dashboard_response, "response_metadata", {}) or {}
+        finish_reason = finish.get("finish_reason") or finish.get("stop_reason") or "?"
+        body_html = _extract_html(raw_content)
+        print(f"[Dashboard LLM] body length={len(body_html)}, finish_reason={finish_reason}, preview={raw_content[:150]!r}")
+        if len(body_html) < 80:
+            dashboard_html = ""
+            dashboard_error = f"Isi body terlalu pendek ({len(body_html)} chars). Preview: {raw_content[:200]!r}"
+        else:
+            # Gabungkan body dari LLM dengan kerangka + CSS aplikasi → HTML lengkap terjamin
+            dashboard_html = _assemble_dashboard(body_html)
+            if finish_reason == "length":
+                # body mungkin terpotong; tetap ditampilkan tapi beri catatan
+                dashboard_error = "Catatan: konten mungkin terpotong (finish_reason=length). Pertimbangkan jalankan ulang."
+            print(f"[Dashboard LLM] assembled full HTML length={len(dashboard_html)}")
     except Exception as e:
         print(f"[Dashboard LLM Error] {e}")
         dashboard_html = ""

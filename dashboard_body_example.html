@@ -1,0 +1,373 @@
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="label">Monthly Reliability Health Review</div>
+    <h1>RU IV <span>Cilacap</span></h1>
+  </div>
+  <div class="header-right">
+    <div class="status-badge">
+      <span class="badge-label">Status Nasional</span>
+      <span class="badge yellow">⬤ Yellow</span>
+    </div>
+    <div class="status-badge">
+      <span class="badge-label">Status RU IV</span>
+      <span class="badge orange">⬤ Orange</span>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- KPI UTAMA -->
+  <div>
+    <div class="card-title" style="margin-bottom:14px;">KPI Utama</div>
+    <div class="grid-4">
+      <div class="kpi-card green">
+        <div class="kpi-label">PAF</div>
+        <div class="kpi-val">1.00</div>
+        <div class="kpi-sub">Target: 99.25% ✓ Hijau</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">OA Range</div>
+        <div class="kpi-val">98–100%</div>
+        <div class="kpi-sub">Target: 96.93% ✓ Hijau</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">ICU Open</div>
+        <div class="kpi-val">2,429</div>
+        <div class="kpi-sub">Tanpa closure — Kritis</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="kpi-label">Bad Actor Open</div>
+        <div class="kpi-val">472</div>
+        <div class="kpi-sub">Progres closure stagnan</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">WO Overdue</div>
+        <div class="kpi-val">29,071</div>
+        <div class="kpi-sub">Stagnan: 26,993</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="kpi-label">Inspection Overdue</div>
+        <div class="kpi-val">714</div>
+        <div class="kpi-sub">Signifikan</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="kpi-label">Failure Frequency</div>
+        <div class="kpi-val">74</div>
+        <div class="kpi-sub">Repeated notification</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">MTBF / MTTR</div>
+        <div class="kpi-val">0 jam</div>
+        <div class="kpi-sub">Tidak terukur — No baseline</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RISK SIGNALS + TREND -->
+  <div class="grid-2">
+
+    <!-- LEADING RISK SIGNALS -->
+    <div class="card">
+      <div class="card-title">Leading Risk Signals</div>
+      <div class="risk-section">
+        <div class="risk-row">
+          <span class="risk-name">ICU Open</span>
+          <div class="risk-bar-track"><div class="risk-bar-fill" style="width:95%;background:var(--red);"></div></div>
+          <span class="risk-val">2,429</span>
+          <span class="risk-tag critical">Critical</span>
+        </div>
+        <div class="risk-row">
+          <span class="risk-name">WO Overdue</span>
+          <div class="risk-bar-track"><div class="risk-bar-fill" style="width:90%;background:var(--red);"></div></div>
+          <span class="risk-val">29,071</span>
+          <span class="risk-tag critical">Critical</span>
+        </div>
+        <div class="risk-row">
+          <span class="risk-name">Bad Actor Open</span>
+          <div class="risk-bar-track"><div class="risk-bar-fill" style="width:72%;background:var(--orange);"></div></div>
+          <span class="risk-val">472</span>
+          <span class="risk-tag high">High</span>
+        </div>
+        <div class="risk-row">
+          <span class="risk-name">Inspection Overdue</span>
+          <div class="risk-bar-track"><div class="risk-bar-fill" style="width:55%;background:var(--orange);"></div></div>
+          <span class="risk-val">714</span>
+          <span class="risk-tag high">High</span>
+        </div>
+        <div class="risk-row">
+          <span class="risk-name">RCPS Overdue</span>
+          <div class="risk-bar-track"><div class="risk-bar-fill" style="width:40%;background:var(--yellow);"></div></div>
+          <span class="risk-val">6 item</span>
+          <span class="risk-tag medium">Medium</span>
+        </div>
+        <div class="risk-row">
+          <span class="risk-name">Repeated Notification</span>
+          <div class="risk-bar-track"><div class="risk-bar-fill" style="width:30%;background:var(--yellow);"></div></div>
+          <span class="risk-val">74 notif</span>
+          <span class="risk-tag medium">Medium</span>
+        </div>
+        <div class="risk-row">
+          <span class="risk-name">PAF</span>
+          <div class="risk-bar-track"><div class="risk-bar-fill" style="width:100%;background:var(--green);"></div></div>
+          <span class="risk-val">1.00</span>
+          <span class="risk-tag ok">OK</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TREND DIRECTION -->
+    <div class="card">
+      <div class="card-title">Trend Direction</div>
+      <div class="trend-grid">
+        <div class="trend-item">
+          <span class="trend-item-name">PAF</span>
+          <span class="trend-icon" title="Stabil" style="color:var(--green)">→</span>
+        </div>
+        <div class="trend-item">
+          <span class="trend-item-name">OA</span>
+          <span class="trend-icon" title="Stabil" style="color:var(--green)">→</span>
+        </div>
+        <div class="trend-item">
+          <span class="trend-item-name">ICU Open</span>
+          <span class="trend-icon" title="Stagnan" style="color:var(--red)">⏸</span>
+        </div>
+        <div class="trend-item">
+          <span class="trend-item-name">Bad Actor Open</span>
+          <span class="trend-icon" title="Stagnan" style="color:var(--red)">⏸</span>
+        </div>
+        <div class="trend-item">
+          <span class="trend-item-name">Inspection Overdue</span>
+          <span class="trend-icon" title="Stagnan" style="color:var(--orange)">⏸</span>
+        </div>
+        <div class="trend-item">
+          <span class="trend-item-name">Maintenance Spend</span>
+          <span class="trend-icon" title="Stagnan rendah" style="color:var(--orange)">⏸</span>
+        </div>
+        <div class="trend-item">
+          <span class="trend-item-name">MTBF / MTTR</span>
+          <span class="trend-icon" title="Tidak terukur" style="color:var(--muted)">✗</span>
+        </div>
+        <div class="trend-item">
+          <span class="trend-item-name">PM Compliance</span>
+          <span class="trend-icon" title="No data" style="color:var(--muted)">✗</span>
+        </div>
+      </div>
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:20px;font-size:11px;color:var(--muted);">
+        <span><span style="color:var(--green)">→</span> Stabil</span>
+        <span><span style="color:var(--orange)">⏸</span> Stagnan</span>
+        <span><span style="color:var(--muted)">✗</span> No Data</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MAINTENANCE SPEND -->
+  <div class="card">
+    <div class="card-title">Maintenance Spend Effectiveness</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;">
+      <span style="font-size:12px;color:var(--muted);">Total Absorpsi:</span>
+      <span style="font-family:var(--mono);font-size:22px;font-weight:600;color:var(--red);">16.8%</span>
+      <span style="font-size:11px;color:var(--muted);">dari Rp 1.29 T Plan / Rp 217.9 M Actual — Tidak Efektif</span>
+    </div>
+    <div class="spend-section">
+      <div class="spend-row">
+        <div class="spend-header">
+          <span class="spend-entity">PT02</span>
+          <span class="spend-pct" style="color:var(--orange);">27.7%</span>
+        </div>
+        <div class="spend-track"><div class="spend-fill" style="width:27.7%;"></div></div>
+        <div class="spend-sub"><span>Plan: Rp 398.8 M</span><span>Actual: Rp 110.6 M</span></div>
+      </div>
+      <div class="spend-row">
+        <div class="spend-header">
+          <span class="spend-entity">PT03</span>
+          <span class="spend-pct" style="color:var(--red);">11.7%</span>
+        </div>
+        <div class="spend-track"><div class="spend-fill" style="width:11.7%;"></div></div>
+        <div class="spend-sub"><span>Plan: Rp 889.4 M</span><span>Actual: Rp 104.4 M</span></div>
+      </div>
+      <div class="spend-row">
+        <div class="spend-header">
+          <span class="spend-entity">PT05</span>
+          <span class="spend-pct" style="color:var(--green);">80.6%</span>
+        </div>
+        <div class="spend-track"><div class="spend-fill" style="width:80.6%;"></div></div>
+        <div class="spend-sub"><span>Plan: Rp 3.1 M</span><span>Actual: Rp 2.5 M</span></div>
+      </div>
+      <div class="spend-row">
+        <div class="spend-header">
+          <span class="spend-entity">PT08</span>
+          <span class="spend-pct" style="color:var(--red);">5.3%</span>
+        </div>
+        <div class="spend-track"><div class="spend-fill" style="width:5.3%;"></div></div>
+        <div class="spend-sub"><span>Plan: Rp 7.3 M</span><span>Actual: Rp 0.39 M</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOTSPOTS -->
+  <div class="card">
+    <div class="card-title">Risk Hotspots</div>
+    <table class="hotspot-table">
+      <thead>
+        <tr>
+          <th>Unit</th>
+          <th>Equipment</th>
+          <th>Failure Mode</th>
+          <th>Risk Driver</th>
+          <th>Severity</th>
+          <th>Urgency</th>
+          <th>Recommended Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Utilities RFCC</td>
+          <td><span class="eq-tag">151B501A/B/C</span></td>
+          <td>Tube Leak</td>
+          <td>Bad Actor, ICU, RCPS</td>
+          <td><span class="sev-badge sev-critical">Critical</span></td>
+          <td><span style="color:var(--red);font-weight:600;">Immediate</span></td>
+          <td>Major Overhaul Boiler 151B501A/B/C</td>
+        </tr>
+        <tr>
+          <td>Utilities 50</td>
+          <td><span class="eq-tag">LN.52-802R</span></td>
+          <td>Bootleg Header Line Leak</td>
+          <td>Bad Actor</td>
+          <td><span class="sev-badge sev-high">High</span></td>
+          <td><span style="color:var(--red);font-weight:600;">Immediate</span></td>
+          <td>Replace bootleg line steam</td>
+        </tr>
+        <tr>
+          <td>LOC2</td>
+          <td><span class="eq-tag">021E103A/00</span></td>
+          <td>Repeated Notification</td>
+          <td>Repeated Notification (74 notif)</td>
+          <td><span class="sev-badge sev-medium">Medium</span></td>
+          <td><span style="color:var(--yellow);font-weight:600;">High</span></td>
+          <td>Root cause analysis dan mitigasi</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- RCPS CRITICAL -->
+  <div class="card" style="border-left:3px solid var(--red);">
+    <div class="card-title">RCPS BLACK — Critical Alert</div>
+    <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:220px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:4px;">Issue</div>
+        <div style="font-size:13px;font-weight:500;">Kebocoran tube pada Boiler</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--blue);margin-top:4px;">151B501A/B/C</div>
+      </div>
+      <div style="flex:1;min-width:180px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:4px;">Status Progress</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="flex:1;height:14px;background:var(--bg3);border-radius:7px;overflow:hidden;">
+            <div style="height:100%;width:0%;background:var(--red);border-radius:7px;"></div>
+          </div>
+          <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--red);">0%</span>
+        </div>
+      </div>
+      <div style="flex:1;min-width:180px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:4px;">RCPS Total</div>
+        <div style="font-size:13px;">6 RCPS belum selesai</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Termasuk 1 BLACK progress 0%</div>
+      </div>
+      <div style="background:var(--red-dim);border:1px solid var(--red);border-radius:6px;padding:10px 16px;text-align:center;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--red);letter-spacing:0.1em;text-transform:uppercase;">Action Required</div>
+        <div style="font-size:12px;margin-top:4px;color:var(--text);">Eskalasi Immediate</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MANAGEMENT IMPLICATIONS -->
+  <div class="card">
+    <div class="card-title">Management Implications</div>
+    <table class="mgmt-table">
+      <thead>
+        <tr>
+          <th>Issue</th>
+          <th>Dampak Jika Tidak Ditangani</th>
+          <th>Recommended Action</th>
+          <th>Owner</th>
+          <th>Timeframe</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>ICU open tinggi</strong></td>
+          <td style="color:var(--red);">Unplanned shutdown, kerugian produksi</td>
+          <td>Prioritaskan closure ICU kritis</td>
+          <td style="color:var(--muted);">Reliability Manager</td>
+          <td><span class="timeframe-chip">6 bulan</span></td>
+        </tr>
+        <tr>
+          <td><strong>Bad Actor tidak closure</strong></td>
+          <td style="color:var(--orange);">Peningkatan downtime & biaya maintenance</td>
+          <td>Percepat eksekusi tindakan korektif</td>
+          <td style="color:var(--muted);">Reliability Manager</td>
+          <td><span class="timeframe-chip">6 bulan</span></td>
+        </tr>
+        <tr>
+          <td><strong>Inspection overdue</strong></td>
+          <td style="color:var(--orange);">Kegagalan mendadak peralatan kritis</td>
+          <td>Percepat penyelesaian inspeksi overdue</td>
+          <td style="color:var(--muted);">Inspection Manager</td>
+          <td><span class="timeframe-chip">3 bulan</span></td>
+        </tr>
+        <tr>
+          <td><strong>MTBF/MTTR tidak terukur</strong></td>
+          <td style="color:var(--yellow);">Tidak ada baseline analisis reliability</td>
+          <td>Perbaiki pelaporan dan pengukuran data</td>
+          <td style="color:var(--muted);">Reliability Manager</td>
+          <td><span class="timeframe-chip">3 bulan</span></td>
+        </tr>
+        <tr>
+          <td><strong>Absorpsi anggaran rendah</strong></td>
+          <td style="color:var(--yellow);">Program kerja tidak selesai, risiko naik</td>
+          <td>Evaluasi & percepat eksekusi program</td>
+          <td style="color:var(--muted);">Maintenance Manager</td>
+          <td><span class="timeframe-chip">6 bulan</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- DATA QUALITY -->
+  <div class="card">
+    <div class="card-title">Data Quality & Limitations</div>
+    <div>
+      <div class="dq-row">
+        <div class="dq-dot" style="background:var(--red);"></div>
+        <div><strong>Data Tidak Tersedia Nasional:</strong> OA, downtime, MTBF/MTTR, critical backlog, AIMS tidak memiliki data nasional untuk perbandingan.</div>
+      </div>
+      <div class="dq-row">
+        <div class="dq-dot" style="background:var(--orange);"></div>
+        <div><strong>PM Compliance:</strong> Tidak ada data PM compliance untuk RU IV Cilacap — membatasi analisis leading indicator.</div>
+      </div>
+      <div class="dq-row">
+        <div class="dq-dot" style="background:var(--orange);"></div>
+        <div><strong>No MTBF/MTTR Baseline:</strong> Data 0 jam menunjukkan sistem pelaporan belum berjalan, bukan performa sempurna.</div>
+      </div>
+      <div class="dq-row">
+        <div class="dq-dot" style="background:var(--yellow);"></div>
+        <div><strong>AIMS Data:</strong> Tidak ada data spesifik AIMS untuk analisis lebih lanjut.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <span>RELIABILITY ENGINEERING · RU IV CILACAP · PERTAMINA</span>
+  <div class="confidence">
+    <span>Confidence Level:</span>
+    <span class="conf-pill">MEDIUM</span>
+    <span>Data cukup untuk analisis RU IV, kurang lengkap untuk nasional</span>
+  </div>
+</footer>

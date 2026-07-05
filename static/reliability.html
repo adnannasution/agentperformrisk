@@ -863,7 +863,8 @@
       badge.textContent = activeMode === 'weekly' ? 'Weekly' : 'Monthly';
       title.textContent = cached.title;
       if (activeOutputTab === 'dashboard') {
-        _applyDashboard(cached.dashboard_html);
+        if (currentOutputId) _applyDashboardUrl(currentOutputId);
+        else _applyDashboard(cached.dashboard_html);
       }
     } else {
       output.className = 'output-body empty';
@@ -911,17 +912,12 @@
   function showMsg(el, type, text) { el.className=`upload-msg ${type}`; el.textContent=text; }
 
   // ── Apply LLM-generated dashboard HTML ──────────────────────────────────────
-  function _applyDashboard(html) {
-    if (!html || html.trim().length < 100) return;
+  function _mkDashIframe() {
     const db = document.getElementById('dashboardBody');
     const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'width:100%;border:none;border-radius:8px;display:block;min-height:800px';
-    // Template infografis murni HTML/CSS (tanpa JS) → cukup allow-same-origin.
-    // Pakai srcdoc (bukan blob URL) agar tidak diblokir CSP frame-src di produksi.
-    iframe.setAttribute('sandbox', 'allow-same-origin');
+    iframe.style.cssText = 'width:100%;border:none;border-radius:8px;display:block;min-height:900px';
     db.innerHTML = '';
     db.appendChild(iframe);
-    iframe.srcdoc = html;
     iframe.onload = () => {
       try {
         const h = iframe.contentDocument.documentElement.scrollHeight;
@@ -929,6 +925,22 @@
       } catch(_) {}
     };
     _dashLoaded = true;
+    return iframe;
+  }
+
+  // Paling andal: muat HTML infografis dari endpoint same-origin (bukan blob/srcdoc)
+  function _applyDashboardUrl(outputId) {
+    if (!outputId) return false;
+    const iframe = _mkDashIframe();
+    iframe.src = `/reliability/dashboard-html/${outputId}`;
+    return true;
+  }
+
+  // Fallback: render string HTML langsung via srcdoc (untuk hasil yang belum tersimpan)
+  function _applyDashboard(html) {
+    if (!html || html.trim().length < 100) return;
+    const iframe = _mkDashIframe();
+    iframe.srcdoc = html;
   }
 
   // ── Run Agent ───────────────────────────────────────────────────────────────
@@ -971,7 +983,9 @@
         _dashLoaded = false;
         if (activeOutputTab === 'dashboard') {
           const dhtml = data.dashboard_html || '';
-          if (dhtml.trim().length > 100) {
+          if (dhtml.trim().length > 100 && currentOutputId) {
+            _applyDashboardUrl(currentOutputId);   // muat dari endpoint same-origin (paling andal)
+          } else if (dhtml.trim().length > 100) {
             _applyDashboard(dhtml);
           } else {
             const errMsg = data.dashboard_error || '';
@@ -1238,7 +1252,9 @@
       dashBody.classList.add('show');
       // prefer LLM-generated infographic if available
       const cached = ruResults[_ruKey()];
-      if (cached && cached.dashboard_html && cached.dashboard_html.trim().length > 100) {
+      if (cached && cached.dashboard_html && cached.dashboard_html.trim().length > 100 && currentOutputId) {
+        _applyDashboardUrl(currentOutputId);
+      } else if (cached && cached.dashboard_html && cached.dashboard_html.trim().length > 100) {
         _applyDashboard(cached.dashboard_html);
       } else {
         _dashLoaded = false;      // selalu reload fresh saat buka tab Dashboard
@@ -1257,20 +1273,21 @@
     if (_dashLoaded) return;
     const body = document.getElementById('dashboardBody');
 
-    // If we have a cached LLM result, show it
+    // If we have a cached LLM result, show it (prefer same-origin endpoint when ada output id)
     const cached = ruResults[_ruKey()];
     if (cached && cached.dashboard_html && cached.dashboard_html.trim().length > 100) {
-      _applyDashboard(cached.dashboard_html);
+      if (currentOutputId) _applyDashboardUrl(currentOutputId);
+      else _applyDashboard(cached.dashboard_html);
       return;
     }
-    // If there's a currentOutputId, try fetching its LLM dashboard
+    // If there's a currentOutputId, cek apakah punya infografis lalu muat dari endpoint same-origin
     if (currentOutputId) {
       body.innerHTML = '<div class="dashboard-loading">⏳ Memuat infografis...</div>';
       try {
         const res  = await fetch(`/reliability/history/${currentOutputId}`);
         const data = await res.json();
         if (data.success && data.data.dashboard_html && data.data.dashboard_html.trim().length > 100) {
-          _applyDashboard(data.data.dashboard_html);
+          _applyDashboardUrl(currentOutputId);
           return;
         }
       } catch(_) {}

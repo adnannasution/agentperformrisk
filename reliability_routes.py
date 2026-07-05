@@ -187,6 +187,39 @@ def get_history_detail(output_id):
         return jsonify({"error": str(e)}), 500
 
 
+@reliability_bp.route("/reliability/dashboard-html/<int:output_id>", methods=["GET"])
+def get_dashboard_html(output_id):
+    """Serve raw HTML infografis dari DB sebagai dokumen same-origin (untuk iframe src)."""
+    try:
+        row = fetch_reliability_output_detail(output_id)
+        if not row:
+            return "Output tidak ditemukan", 404
+        html = dict(row).get("dashboard_html") or ""
+        ctype = {"Content-Type": "text/html; charset=utf-8"}
+        if not html.strip():
+            return "<html><body style='font-family:sans-serif;padding:24px;color:#64748b'>Infografis belum tersedia untuk output ini. Jalankan agent untuk membuatnya.</body></html>", 200, ctype
+        # Deteksi HTML terpotong (kena batas token) — jangan tampil blank diam-diam
+        if "</html>" not in html.lower():
+            if "</body>" not in html.lower():
+                html = html + "\n</body></html>"
+            else:
+                html = html + "\n</html>"
+            banner = ("<div style=\"font-family:sans-serif;background:#fef2f2;color:#dc2626;"
+                      "border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin:16px;font-size:13px\">"
+                      "⚠️ Infografis ini terpotong saat dibuat (kena batas token). "
+                      "Silakan jalankan ulang agent untuk versi lengkap.</div>")
+            # sisipkan banner tepat setelah <body>
+            low = html.lower()
+            bi = low.find("<body")
+            if bi != -1:
+                bend = low.find(">", bi)
+                if bend != -1:
+                    html = html[:bend+1] + banner + html[bend+1:]
+        return html, 200, ctype
+    except Exception as e:
+        return f"Error: {e}", 500
+
+
 @reliability_bp.route("/reliability/source-data/<source_key>", methods=["GET"])
 def get_source_data(source_key):
     """Kembalikan baris data mentah untuk modal 'Lihat Sumber Data'."""

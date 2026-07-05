@@ -795,7 +795,11 @@ def run_reliability_agent(mode: str = "weekly", ru: str = None) -> dict:
             {"role": "system", "content": dash_system},
             {"role": "user",   "content": dashboard_user_msg},
         ])
-        dashboard_html = _extract_html(dashboard_response.content)
+        raw_content = dashboard_response.content or ""
+        print(f"[Dashboard LLM] response length={len(raw_content)}, preview={raw_content[:300]!r}")
+        dashboard_html = _extract_html(raw_content)
+        if len(dashboard_html) < 100:
+            dashboard_error = f"HTML terlalu pendek ({len(dashboard_html)} chars). Preview: {raw_content[:200]!r}"
     except Exception as e:
         print(f"[Dashboard LLM Error] {e}")
         dashboard_html = ""

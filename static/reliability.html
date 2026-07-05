@@ -970,7 +970,12 @@
         document.getElementById('lastRun').textContent = `Terakhir: ${new Date().toLocaleString('id-ID')}`;
         _dashLoaded = false;
         if (activeOutputTab === 'dashboard') {
-          _applyDashboard(data.dashboard_html || '');
+          const dhtml = data.dashboard_html || '';
+          if (dhtml.trim().length > 100) {
+            _applyDashboard(dhtml);
+          } else {
+            loadDashboard(); // fallback ke SVG charts jika LLM dashboard kosong
+          }
         }
         loadHistory(activeFilter);
       } else {

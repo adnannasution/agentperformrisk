@@ -6,11 +6,9 @@ untuk menilai health reliability secara menyeluruh.
 
 import os
 from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
 from reliability_data import get_reliability_data
 
-DINOIKI_API_KEY   = os.getenv("DINOIKI_API_KEY", "")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+DINOIKI_API_KEY = os.getenv("DINOIKI_API_KEY", "")
 
 llm = ChatOpenAI(
     model="gpt-4o",
@@ -19,11 +17,12 @@ llm = ChatOpenAI(
     temperature=0.2,
 )
 
-llm_dashboard = ChatAnthropic(
-    model="claude-sonnet-4-6",
-    api_key=ANTHROPIC_API_KEY,
+llm_dashboard = ChatOpenAI(
+    model="gpt-4o",
+    api_key=DINOIKI_API_KEY,
+    base_url="https://ai.dinoiki.com/v1",
     temperature=0.7,
-    max_tokens=16000,
+    max_tokens=12000,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────

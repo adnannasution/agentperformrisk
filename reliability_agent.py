@@ -530,178 +530,42 @@ def _build_context(data: dict, ru: str = None) -> str:
 # DASHBOARD HTML PROMPT
 # ─────────────────────────────────────────────────────────────────────────────
 
-_DASHBOARD_SYSTEM_OVERALL = """You are a senior data visualization engineer building an executive-grade HTML reliability dashboard for Pertamina oil refinery operations. Output must look like a polished BI tool — not a simple webpage.
+_DASHBOARD_SYSTEM_OVERALL = """Kamu adalah desainer infografis eksekutif kelas dunia. Buat infografis HTML yang sangat visual, cantik, dan informatif dari hasil analisis reliability kilang minyak Pertamina berikut.
 
-OUTPUT RULE: Return ONLY raw HTML starting with <!DOCTYPE html>. No markdown fences. All CSS inline in <style>. Zero external resources (no CDN, no @import, no src URLs).
-All text content in Bahasa Indonesia. All data values MUST come from the analysis — no placeholders.
+ATURAN OUTPUT: Kembalikan HANYA kode HTML mentah mulai dari <!DOCTYPE html>. Tanpa markdown fence. Semua CSS di dalam <style>. Tidak ada CDN atau resource eksternal.
+Semua teks dalam Bahasa Indonesia. Semua angka dan data HARUS diambil dari analisis — tidak boleh placeholder.
 
-━━━ VISUAL DESIGN SYSTEM ━━━
-Color tokens (LIGHT THEME — clean professional white):
-  --bg: #f1f5f9          (page background — light grey)
-  --surface: #ffffff     (card background — white)
-  --surface2: #f8fafc    (card inner / row alt — off-white)
-  --border: #e2e8f0      (card border — light grey)
-  --teal: #0d9488        (primary accent)
-  --teal-light: #f0fdfa  (teal tint bg)
-  --text: #0f172a        (primary text — near black)
-  --muted: #64748b       (secondary text — slate)
-  --green: #16a34a  --green-bg: #dcfce7  --green-border: #bbf7d0
-  --yellow: #b45309 --yellow-bg: #fef3c7 --yellow-border: #fde68a
-  --orange: #c2410c --orange-bg: #ffedd5 --orange-border: #fed7aa
-  --red: #dc2626    --red-bg: #fee2e2    --red-border: #fecaca
-  --grey: #64748b   --grey-bg: #f1f5f9   --grey-border: #e2e8f0
-
-Typography:
-  font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif
-  Base: 13px / 1.6. Heading: 700. Mono numbers: font-variant-numeric: tabular-nums
-
-Cards: border-radius:12px; padding:20px 24px; border:1px solid var(--border); box-shadow:0 1px 8px rgba(0,0,0,.06)
-Sections: margin-bottom: 24px
-Section heading: font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; padding-left:10px; border-left:3px solid #0d9488
-
-━━━ STATUS BADGE COMPONENT ━━━
-Inline pill: padding 3px 10px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.04em
-  Green  → bg #dcfce7; color #16a34a; border:1px solid #bbf7d0
-  Yellow → bg #fef3c7; color #b45309; border:1px solid #fde68a
-  Orange → bg #ffedd5; color #c2410c; border:1px solid #fed7aa
-  Red    → bg #fee2e2; color #dc2626; border:1px solid #fecaca
-  Grey   → bg #f1f5f9; color #64748b; border:1px solid #e2e8f0
-
-━━━ TREND INDICATOR ━━━
-After numeric values show trend: ▲ color:#16a34a (improving) | ▼ color:#dc2626 (deteriorating) | → color:#94a3b8 (stable)
-Determine from analysis text; omit if not determinable.
-
-━━━ PROGRESS BAR COMPONENT ━━━
-For percentage KPIs, render a slim bar (height:5px; border-radius:3px; background:#e2e8f0) with a fill div (height:100%; border-radius:3px). Color fill by value:
-  ≥95% → #16a34a | 85–94% → #b45309 | 70–84% → #c2410c | <70% → #dc2626
-
-━━━ SVG CHART COMPONENTS (inline, zero dependencies) ━━━
-
-CHART A — Horizontal Bar Chart (for comparing values across 6 RUs):
-  Use inline <svg> with fixed viewBox. Each bar = a <rect> + <text> label left + value right.
-  Bar height: 22px, gap: 10px. Color bar by status. Background track: #e2e8f0.
-  Example structure (adapt values from analysis):
-  <svg viewBox="0 0 400 220" width="100%" style="display:block">
-    <!-- RU II Dumai -->
-    <text x="0" y="20" font-size="11" fill="#64748b">RU II Dumai</text>
-    <rect x="110" y="8" width="240" height="16" rx="4" fill="#e2e8f0"/>
-    <rect x="110" y="8" width="[pct*240]" height="16" rx="4" fill="[status-color]"/>
-    <text x="355" y="20" font-size="11" fill="#0f172a" font-weight="700">[value]</text>
-    <!-- repeat for each RU -->
-  </svg>
-
-CHART B — Donut / Ring Gauge (for single % KPI like absorption, PAF, PM compliance):
-  Pure SVG circle approach. Two <circle> elements using stroke-dasharray/stroke-dashoffset.
-  r=40, cx=60, cy=60, viewBox="0 0 120 120"
-  Track circle: stroke:#e2e8f0, stroke-width:10, fill:none
-  Fill circle: stroke:[status-color], stroke-width:10, fill:none,
-    stroke-dasharray: "[pct*251.2] 251.2"  (circumference = 2π×40 ≈ 251.2)
-    stroke-dashoffset: 62.8  (start from top: 251.2×0.25)
-    transform="rotate(-90,60,60)"
-  Center text: <text x="60" y="64" text-anchor="middle" font-size="18" font-weight="800" fill="[status-color]">[val]%</text>
-  Wrap in a flex row with label below for clean layout.
-
-CHART C — Mini Sparkline (for trend lines, 5–7 data points):
-  <svg viewBox="0 0 120 40" width="120" height="40">
-    <polyline points="[x1,y1 x2,y2 ...]" fill="none" stroke="[color]" stroke-width="2" stroke-linejoin="round"/>
-    <circle cx="[last_x]" cy="[last_y]" r="3" fill="[color]"/>
-  </svg>
-  Scale y: map min→36, max→4. If values unavailable, omit sparkline entirely.
-
-━━━ PAGE STRUCTURE ━━━
-
-[1] HEADER BAR (full-width, bg:#ffffff, border-bottom:2px solid #e2e8f0, padding:16px 32px; box-shadow:0 1px 4px rgba(0,0,0,.06))
-  Left: logo area — colored square icon (bg: linear-gradient(135deg,#0d9488,#0f766e), border-radius:10px, 36×36px) + "RELIABILITY DASHBOARD" bold teal 16px + "Nasional — Seluruh RU" subtitle muted 12px
-  Center: overall health status badge (large 14px) + tagline "Kondisi Sistem Reliability" muted
-  Right: mode badge (Weekly bg:#f0fdfa,color:#0f766e,border:#99f6e4 / Monthly bg:#fef3c7,color:#92400e,border:#fde68a) + generated timestamp muted
-
-[2] CONTAINER (max-width:1280px; margin:0 auto; padding:24px 28px; background:var(--bg))
-
-[3] EXECUTIVE SUMMARY CARD (full-width, surface bg)
-  — Extract content of ## 1. Executive Reliability Health Summary
-  — Left panel (60%): 3–4 key findings as styled bullet rows. Each row: colored dot + bold finding text + muted detail. Use border-left:3px solid for emphasis on critical items.
-  — Right panel (40%): "National Risk Score" — a large circular indicator (CSS-only) showing overall status + 2-line summary
-
-[4] KPI SCORECARD ROW (6 cards, grid: repeat(6,1fr), gap:12px — stack to 3 then 2 on smaller screens)
-  Each card (surface bg):
-    - Icon area: 36×36px rounded square with status-tinted background + unicode icon
-    - Value: 28px, 800 weight, status color
-    - Progress bar (for % KPIs)
-    - Label: 11px muted uppercase
-    - Sub: 11px muted detail text
-    - Trend indicator (▲▼→)
-  KPIs to show: PAF Realisasi (%), ICU Open (total), Bad Actor Open, Inspection Overdue, PM Compliance (%), Critical Backlog / WO Stagnant
-
-[5] RU HEALTH MATRIX (full-width card, surface bg)
-  Title row: "Status Kesehatan per Refinery Unit"
-  Grid: repeat(6,1fr) gap:10px → each RU card (surface2 bg, border-radius:10px, border-left:4px solid <status-color>):
-    - RU name bold 13px
-    - Location name muted 11px
-    - Overall status badge
-    - 3 mini KPI rows: small label + value inline
-    - 2 key concerns as small bullet points (font-size:11px, muted)
-
-[6] CHARTS ROW (2-column, gap:16px)
-  Left card — "PAF per RU" horizontal bar chart (CHART A). Extract PAF % per RU from ## 2 and ## 3. Add target line indicator if target mentioned.
-  Right card — Split into 2 sub-sections stacked:
-    Top: "PM Compliance Nasional" donut gauge (CHART B) with % value from ## 5
-    Bottom: "Maintenance Spend Absorption" donut gauge (CHART B) with % from ## 7
-  Each card has a section label header and the chart below.
-
-[7] RU COMPARISON CHART CARD (full-width, surface bg)
-  Title: "ICU Open & Bad Actor per RU — Perbandingan"
-  Two horizontal bar charts side by side (CHART A × 2):
-    Left: ICU Open count per RU (bars colored: >500 red, 200-500 orange, <200 green)
-    Right: Bad Actor Open count per RU (same coloring logic)
-  Extract values from ## 2, ## 3, ## 8.
-
-[8] ANALYSIS SECTIONS GRID (2-column grid, gap:16px)
-  For each ## 1–12, render a card:
-    Header: circle number badge (22px, teal bg) + section title + status badge — all in one flex row
-    Body: 3–5 bullet points, each as a styled row:
-      - Bullet dot colored by severity
-      - Finding text with <strong> on numbers/key terms
-      - If a number is mentioned, render a subtle pill: font-size:11px, mono, bg:surface2, padding:1px 6px, border-radius:4px
-    Sections ## 1, ## 9, ## 11 → grid-column: span 2
-
-[9] RISK HOTSPOT TABLE (full-width, surface bg)
-  Extract from ## 9. Styled <table> with:
-    thead: bg surface2, text muted uppercase 10px, border-bottom:2px solid border color
-    tbody rows: alternating bg; border-bottom:1px solid border
-    Columns: No | RU | Equipment/Unit | Risk Driver | Severity badge | Urgency badge | Recommended Action
-    Urgency Critical → red row highlight
-
-[10] MANAGEMENT ACTION TABLE (full-width, surface bg)
-  Extract from ## 11. Columns: Isu | RU | Risiko Jika Tidak Ditangani | Aksi | Owner | Timeframe
-  Priority rows (critical) get red left border accent.
-
-[11] FOOTER BAR
-  bg:#ffffff; border-top:2px solid #e2e8f0; padding:14px 32px
-  Left: "Data Quality & Limitation" from ## 12 — truncated to 2 lines, muted 11px
-  Right: confidence level badge + "Generated by Reliability Performance & Risk Agent"
-
-━━━ MICRO-DETAILS ━━━
-- All tables: border-collapse:collapse; width:100%; font-size:12px
-- th: padding:10px 14px; text-align:left
-- td: padding:9px 14px; vertical-align:top
-- Bullet rows: display:flex; align-items:flex-start; gap:8px; margin-bottom:6px
-- Bullet dot: width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:6px
-- Strong numbers: color:var(--text); font-weight:700
-- Critical numbers: color:#dc2626; font-weight:700
-- Warning numbers: color:#b45309; font-weight:700
-- Scrollable tables: overflow-x:auto wrapper div
-- Chart cards: min-height:200px; overflow:hidden
-- @media(max-width:900px): KPI grid → repeat(3,1fr); RU grid → repeat(2,1fr); charts row → 1fr
-- @media(max-width:600px): all grids → 1fr; section grid → 1fr
+Buat infografis sekantik dan sedetail mungkin. Gunakan kreativitasmu sepenuhnya dengan:
+- Dark navy header (#1a2f4e atau serupa) dengan judul besar "MONTHLY/WEEKLY RELIABILITY HEALTH REVIEW" + nama scope dalam warna gold/amber
+- Layout multi-kolom seperti laporan eksekutif / majalah
+- Badge status berwarna (HIJAU/KUNING/ORANYE/MERAH)
+- Chart SVG inline: donut gauge untuk %, horizontal bar untuk per-RU, sparkline untuk trend
+- Tabel data dengan baris berwarna sesuai severity
+- Icon/emoji yang relevan di setiap section
+- Section yang jelas: Executive Summary, KPI Scorecard, Leading & Lagging Indicator, Trend Direction, Risk Hotspot, Maintenance Spend, Management Action Plan, Data Quality
+- Semua informasi penting dari analisis HARUS muncul di infografis
+- Gunakan warna, shadow, border-radius, grid untuk tampilan premium
 
 BAHASA KONTEN: Indonesia.
-Output HANYA kode HTML. Mulai langsung dengan <!DOCTYPE html>."""
+Output HANYA kode HTML mentah. Mulai langsung dengan <!DOCTYPE html>."""
 
 
-_DASHBOARD_SYSTEM_PER_RU = """You are a senior data visualization engineer building an executive-grade single-RU HTML reliability dashboard for Pertamina oil refinery management. Output must look like a polished BI tool used in a boardroom.
+_DASHBOARD_SYSTEM_PER_RU = """Kamu adalah desainer infografis eksekutif kelas dunia. Buat infografis HTML yang sangat visual, cantik, dan informatif dari hasil analisis reliability satu Refinery Unit (RU) kilang minyak Pertamina berikut.
 
-OUTPUT RULE: Return ONLY raw HTML starting with <!DOCTYPE html>. No markdown fences. All CSS inline in <style>. Zero external resources.
-All text content in Bahasa Indonesia. All data values MUST come from the analysis — no placeholders.
+ATURAN OUTPUT: Kembalikan HANYA kode HTML mentah mulai dari <!DOCTYPE html>. Tanpa markdown fence. Semua CSS di dalam <style>. Tidak ada CDN atau resource eksternal.
+Semua teks dalam Bahasa Indonesia. Semua angka dan data HARUS diambil dari analisis — tidak boleh placeholder.
+
+Buat infografis sekantik dan sedetail mungkin. Gunakan kreativitasmu sepenuhnya dengan:
+- Dark navy header (#1a2f4e atau serupa) dengan judul besar "MONTHLY/WEEKLY RELIABILITY HEALTH REVIEW" + nama RU dalam warna gold/amber besar
+- Status nasional vs status RU dalam badge berwarna besar yang mencolok
+- Layout multi-kolom seperti laporan boardroom / majalah eksekutif
+- KPI yang Baik vs Sinyal Risiko Utama dengan icon dan warna kontras
+- Chart SVG inline: donut gauge untuk %, horizontal bar untuk perbandingan, sparkline untuk trend
+- Tabel Risk Hotspot dengan equipment tag, severity, urgency, recommended action
+- Tabel Management Action Plan
+- Section: Executive Summary, National vs RU Status, Leading Concern, Lagging Concern, Trend Direction, Maintenance Spend Effectiveness, Asset Integrity, Risk Hotspot, KPI vs Field Signal Mismatch, Management Action Plan, Data Quality
+- Semua informasi dari analisis HARUS muncul
+- Gunakan warna, shadow, border-radius, grid, icon/emoji untuk tampilan premium dan profesional
 
 ━━━ VISUAL DESIGN SYSTEM ━━━
 Light professional theme (white/grey):

@@ -18,11 +18,11 @@ llm = ChatOpenAI(
 )
 
 llm_dashboard = ChatOpenAI(
-    model="gpt-4o",
+    model="claude-sonnet-4-6",
     api_key=DINOIKI_API_KEY,
     base_url="https://ai.dinoiki.com/v1",
     temperature=0.7,
-    max_tokens=12000,
+    max_tokens=16000,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────

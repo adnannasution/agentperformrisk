@@ -34,7 +34,12 @@ except Exception as e:
 
 @reliability_bp.route("/reliability")
 def reliability_ui():
-    return send_from_directory(STATIC_DIR, "reliability.html")
+    resp = send_from_directory(STATIC_DIR, "reliability.html")
+    # Cegah browser cache UI lama agar update deploy langsung kepakai
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -17,6 +17,14 @@ llm = ChatOpenAI(
     temperature=0.2,
 )
 
+llm_dashboard = ChatOpenAI(
+    model="gpt-4o",
+    api_key=DINOIKI_API_KEY,
+    base_url="https://ai.dinoiki.com/v1",
+    temperature=0.1,
+    max_tokens=12000,
+)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # SYSTEM PROMPTS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -918,7 +926,7 @@ def run_reliability_agent(mode: str = "weekly", ru: str = None) -> dict:
         f"{analysis_content}"
     )
     try:
-        dashboard_response = llm.invoke([
+        dashboard_response = llm_dashboard.invoke([
             {"role": "system", "content": dash_system},
             {"role": "user",   "content": dashboard_user_msg},
         ])

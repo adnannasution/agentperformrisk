@@ -195,9 +195,27 @@ def get_dashboard_html(output_id):
         if not row:
             return "Output tidak ditemukan", 404
         html = dict(row).get("dashboard_html") or ""
+        ctype = {"Content-Type": "text/html; charset=utf-8"}
         if not html.strip():
-            return "<html><body style='font-family:sans-serif;padding:24px;color:#64748b'>Infografis belum tersedia untuk output ini.</body></html>", 200, {"Content-Type": "text/html; charset=utf-8"}
-        return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+            return "<html><body style='font-family:sans-serif;padding:24px;color:#64748b'>Infografis belum tersedia untuk output ini. Jalankan agent untuk membuatnya.</body></html>", 200, ctype
+        # Deteksi HTML terpotong (kena batas token) — jangan tampil blank diam-diam
+        if "</html>" not in html.lower():
+            if "</body>" not in html.lower():
+                html = html + "\n</body></html>"
+            else:
+                html = html + "\n</html>"
+            banner = ("<div style=\"font-family:sans-serif;background:#fef2f2;color:#dc2626;"
+                      "border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin:16px;font-size:13px\">"
+                      "⚠️ Infografis ini terpotong saat dibuat (kena batas token). "
+                      "Silakan jalankan ulang agent untuk versi lengkap.</div>")
+            # sisipkan banner tepat setelah <body>
+            low = html.lower()
+            bi = low.find("<body")
+            if bi != -1:
+                bend = low.find(">", bi)
+                if bend != -1:
+                    html = html[:bend+1] + banner + html[bend+1:]
+        return html, 200, ctype
     except Exception as e:
         return f"Error: {e}", 500
 

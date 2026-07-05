@@ -661,10 +661,22 @@ def run_reliability_agent(mode: str = "weekly", ru: str = None) -> dict:
             {"role": "user",   "content": dashboard_user_msg},
         ])
         raw_content = dashboard_response.content or ""
-        print(f"[Dashboard LLM] response length={len(raw_content)}, preview={raw_content[:300]!r}")
+        finish = getattr(dashboard_response, "response_metadata", {}) or {}
+        finish_reason = finish.get("finish_reason") or finish.get("stop_reason") or "?"
+        print(f"[Dashboard LLM] response length={len(raw_content)}, finish_reason={finish_reason}, preview={raw_content[:200]!r}")
         dashboard_html = _extract_html(raw_content)
+        complete = "</html>" in dashboard_html.lower()
+        print(f"[Dashboard LLM] extracted length={len(dashboard_html)}, complete_html={complete}")
         if len(dashboard_html) < 100:
             dashboard_error = f"HTML terlalu pendek ({len(dashboard_html)} chars). Preview: {raw_content[:200]!r}"
+        elif not complete:
+            # HTML terpotong (kena batas token) — tandai supaya tidak tampil blank diam-diam
+            dashboard_error = (
+                f"HTML terpotong (tidak lengkap sampai </html>). "
+                f"Panjang={len(dashboard_html)}, finish_reason={finish_reason}. "
+                f"Coba jalankan ulang atau naikkan max_tokens."
+            )
+            print(f"[Dashboard LLM] WARNING: {dashboard_error}")
     except Exception as e:
         print(f"[Dashboard LLM Error] {e}")
         dashboard_html = ""

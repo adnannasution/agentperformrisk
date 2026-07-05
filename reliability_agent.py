@@ -785,9 +785,12 @@ def run_reliability_agent(mode: str = "weekly", ru: str = None) -> dict:
     label = "Weekly" if mode == "weekly" else "Monthly"
     dash_system = _DASHBOARD_SYSTEM_PER_RU if ru else _DASHBOARD_SYSTEM_OVERALL
     scope_label = f"{ru} — " if ru else ""
+    # Batasi panjang analisis agar tidak melebihi batas token LLM dashboard
+    analysis_for_dash = analysis_content[:6000] if len(analysis_content) > 6000 else analysis_content
+    print(f"[Dashboard LLM] sending analysis length={len(analysis_for_dash)} chars")
     dashboard_user_msg = (
-        f"Buat HTML dashboard dari hasil analisis reliability {scope_label}{label} berikut:\n\n"
-        f"{analysis_content}"
+        f"Buat HTML infografis dari hasil analisis reliability {scope_label}{label} berikut:\n\n"
+        f"{analysis_for_dash}"
     )
     dashboard_error = ""
     try:

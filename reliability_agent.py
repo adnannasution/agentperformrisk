@@ -6,9 +6,11 @@ untuk menilai health reliability secara menyeluruh.
 
 import os
 from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from reliability_data import get_reliability_data
 
-DINOIKI_API_KEY = os.getenv("DINOIKI_API_KEY", "")
+DINOIKI_API_KEY   = os.getenv("DINOIKI_API_KEY", "")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
 llm = ChatOpenAI(
     model="gpt-4o",
@@ -17,12 +19,11 @@ llm = ChatOpenAI(
     temperature=0.2,
 )
 
-llm_dashboard = ChatOpenAI(
-    model="gpt-4o",
-    api_key=DINOIKI_API_KEY,
-    base_url="https://ai.dinoiki.com/v1",
-    temperature=0.1,
-    max_tokens=12000,
+llm_dashboard = ChatAnthropic(
+    model="claude-sonnet-4-6",
+    api_key=ANTHROPIC_API_KEY,
+    temperature=0.7,
+    max_tokens=16000,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -536,7 +537,7 @@ ATURAN OUTPUT: Kembalikan HANYA kode HTML mentah mulai dari <!DOCTYPE html>. Tan
 Semua teks dalam Bahasa Indonesia. Semua angka dan data HARUS diambil dari analisis — tidak boleh placeholder.
 
 Buat infografis sekantik dan sedetail mungkin. Gunakan kreativitasmu sepenuhnya dengan:
-- Dark navy header (#1a2f4e atau serupa) dengan judul besar "MONTHLY/WEEKLY RELIABILITY HEALTH REVIEW" + nama scope dalam warna gold/amber
+- Header putih bersih dengan aksen teal/biru profesional, judul besar "MONTHLY/WEEKLY RELIABILITY HEALTH REVIEW" + nama scope berwarna teal atau biru tua
 - Layout multi-kolom seperti laporan eksekutif / majalah
 - Badge status berwarna (HIJAU/KUNING/ORANYE/MERAH)
 - Chart SVG inline: donut gauge untuk %, horizontal bar untuk per-RU, sparkline untuk trend
@@ -556,7 +557,7 @@ ATURAN OUTPUT: Kembalikan HANYA kode HTML mentah mulai dari <!DOCTYPE html>. Tan
 Semua teks dalam Bahasa Indonesia. Semua angka dan data HARUS diambil dari analisis — tidak boleh placeholder.
 
 Buat infografis sekantik dan sedetail mungkin. Gunakan kreativitasmu sepenuhnya dengan:
-- Dark navy header (#1a2f4e atau serupa) dengan judul besar "MONTHLY/WEEKLY RELIABILITY HEALTH REVIEW" + nama RU dalam warna gold/amber besar
+- Header putih bersih dengan aksen teal/biru profesional, judul besar "MONTHLY/WEEKLY RELIABILITY HEALTH REVIEW" + nama RU dalam warna teal atau biru tua, besar dan mencolok
 - Status nasional vs status RU dalam badge berwarna besar yang mencolok
 - Layout multi-kolom seperti laporan boardroom / majalah eksekutif
 - KPI yang Baik vs Sinyal Risiko Utama dengan icon dan warna kontras

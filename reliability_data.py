@@ -307,7 +307,7 @@ def _get_rcps() -> list:
     with _cursor() as cur:
         cur.execute("""
             SELECT kilang, rcps_no, judul_rcps, disiplin,
-                   criticallity, traffic, sum_of_progress, date
+                   criticallity, traffic, sum_of_progress, periode
             FROM rcps
             ORDER BY kilang,
                      CASE traffic
@@ -315,7 +315,7 @@ def _get_rcps() -> list:
                        WHEN 'Yellow' THEN 2
                        WHEN 'Green'  THEN 3
                        ELSE 4 END,
-                     date DESC
+                     periode DESC
         """)
         return [_enrich_row(dict(r)) for r in cur.fetchall()]
 
@@ -325,7 +325,7 @@ def _get_rcps_rekomendasi() -> dict:
         cur.execute("""
             SELECT kilang, rcps_no, judul_rcps,
                    rekomendasi, traffic, pic,
-                   target, recommendation_category, remark, date
+                   target, recommendation_category, remark, periode
             FROM rcps_rekomendasi
             WHERE traffic NOT ILIKE '%green%'
                OR traffic IS NULL
@@ -733,15 +733,15 @@ def _src_rcps():
             SELECT kilang, rcps_no, judul_rcps, disiplin,
                    criticallity, traffic,
                    ROUND(COALESCE(sum_of_progress, 0)::numeric, 1) AS sum_of_progress,
-                   date
+                   periode
             FROM rcps
             ORDER BY kilang,
                      CASE traffic WHEN 'Red' THEN 1 WHEN 'Yellow' THEN 2 WHEN 'Green' THEN 3 ELSE 4 END,
-                     date DESC
+                     periode DESC
         """)
         rows = [_enrich_row(dict(r)) for r in cur.fetchall()]
     cols = ["ru_name", "kilang", "rcps_no", "judul_rcps", "disiplin",
-            "criticallity", "traffic", "sum_of_progress", "date"]
+            "criticallity", "traffic", "sum_of_progress", "periode"]
     return rows, cols, "RCPS — Root Cause Problem Solving"
 
 

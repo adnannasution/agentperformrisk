@@ -147,7 +147,7 @@ def _get_paf() -> dict:
 def _get_issue_paf() -> list:
     with _cursor() as cur:
         cur.execute("""
-            SELECT ru, type, issue, equipment, periode
+            SELECT ru, type, issue, periode
             FROM issue_paf
             WHERE code_current = 1
             ORDER BY ru, periode DESC
@@ -665,13 +665,13 @@ def _src_paf():
 def _src_issue_paf():
     with _cursor() as cur:
         cur.execute("""
-            SELECT ru, type, issue, equipment, periode
+            SELECT ru, type, issue, periode
             FROM issue_paf
             WHERE code_current = 1
             ORDER BY ru, periode DESC
         """)
         rows = [_enrich_row(dict(r)) for r in cur.fetchall()]
-    cols = ["ru_name", "ru", "type", "issue", "equipment", "periode"]
+    cols = ["ru_name", "ru", "type", "issue", "periode"]
     return rows, cols, "Issue PAF — Penyebab Kehilangan Availability"
 
 

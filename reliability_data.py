@@ -115,6 +115,7 @@ def get_reliability_data() -> dict:
         "critical_equipment": _get_critical_equipment(periode),
         "inspection_overdue": _get_inspection_overdue(periode),
         "readiness_jetty":    _get_readiness_jetty(periode),
+        "readiness_tank":     _get_readiness_tank(periode),
         "sap":                _get_sap_data(),
         "laporan_bulanan":    _get_laporan_bulanan(),
     }
@@ -601,7 +602,147 @@ def _get_readiness_jetty(periode: str) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 11. SAP — WO & Notifikasi
+# 11. READINESS TANK
+# ─────────────────────────────────────────────────────────────────────────────
+
+_TANK_COMPONENTS = [
+    "atg", "grounding", "bonding", "temp_indicator", "level_indicator",
+    "gauge_hatch", "alarm", "ihla", "water_sprinkle", "foam_chamber",
+    "gun_monitor", "fgds", "lps", "cathodic", "shell_course", "roof",
+    "pv_vent", "tank_heater", "mixer", "stairway", "annular_plate",
+    "bottom_plate", "gate_valve", "foundation", "expansion_joint",
+    "roof_drain", "esv_psv", "mov", "rolling_ladder", "skirt_fireproofing",
+    "painting", "roof_seal",
+]
+
+
+def _get_readiness_tank(periode: str) -> dict:
+    with _cursor() as cur:
+        # Data identitas + sertifikasi
+        cur.execute("""
+            SELECT id, refinery_unit, area, unit, tag_number, equipment,
+                   type_tangki, service_tangki, prioritas, status_operational,
+                   cert_no_atg, date_expired_atg, atg_certification_validity,
+                   coi_date_expired, no_coi, status_coi,
+                   internal_inspection, plan_internal_inspection,
+                   date_expired_tera, status_tera, cert_no_tera,
+                   periode
+            FROM readiness_tank
+            WHERE periode = %s
+            ORDER BY refinery_unit, prioritas, area, unit
+        """, (periode,))
+        all_rows = [_enrich_row(dict(r)) for r in cur.fetchall()]
+
+        # Data komponen per row
+        component_cols = []
+        for c in _TANK_COMPONENTS:
+            component_cols += [f"status_{c}", f"remark_{c}", f"rtl_{c}"]
+        cols_sql = ", ".join(component_cols)
+
+        cur.execute(f"""
+            SELECT id, refinery_unit, area, unit, tag_number, equipment,
+                   type_tangki, service_tangki, prioritas, status_operational, periode,
+                   {cols_sql}
+            FROM readiness_tank
+            WHERE periode = %s
+            ORDER BY refinery_unit, prioritas, area, unit
+        """, (periode,))
+        detail_rows = cur.fetchall()
+
+    # Komponen not good per tank
+    tank_issues = []
+    for r in detail_rows:
+        row = _enrich_row(dict(r))
+        not_good = []
+        for c in _TANK_COMPONENTS:
+            status_val = str(row.get(f"status_{c}") or "").strip().lower()
+            if status_val == "not good":
+                not_good.append({
+                    "komponen": c,
+                    "remark":   row.get(f"remark_{c}"),
+                    "rtl":      row.get(f"rtl_{c}"),
+                })
+        if not_good:
+            tank_issues.append({
+                "ru_name":          row.get("ru_name"),
+                "refinery_unit":    row.get("refinery_unit"),
+                "area":             row.get("area"),
+                "unit":             row.get("unit"),
+                "tag_number":       row.get("tag_number"),
+                "equipment":        row.get("equipment"),
+                "type_tangki":      row.get("type_tangki"),
+                "service_tangki":   row.get("service_tangki"),
+                "prioritas":        row.get("prioritas"),
+                "status_operational": row.get("status_operational"),
+                "periode":          row.get("periode"),
+                "not_good_count":   len(not_good),
+                "komponen_bermasalah": not_good,
+            })
+
+    # Sertifikasi bermasalah
+    sertifikasi_issues = []
+    for r in all_rows:
+        flags = []
+        # ATG
+        atg_val = str(r.get("atg_certification_validity") or "").strip().lower()
+        if atg_val not in ("", "valid", "aktif", "active", "good"):
+            flags.append({
+                "jenis":   "ATG",
+                "no":      r.get("cert_no_atg"),
+                "expired": r.get("date_expired_atg"),
+                "status":  r.get("atg_certification_validity"),
+            })
+        # COI
+        coi_val = str(r.get("status_coi") or "").strip().lower()
+        if coi_val not in ("", "valid", "aktif", "active", "good"):
+            flags.append({
+                "jenis":   "COI",
+                "no":      r.get("no_coi"),
+                "expired": r.get("coi_date_expired"),
+                "status":  r.get("status_coi"),
+            })
+        # TERA
+        tera_val = str(r.get("status_tera") or "").strip().lower()
+        if tera_val not in ("", "valid", "aktif", "active", "good"):
+            flags.append({
+                "jenis":   "TERA",
+                "no":      r.get("cert_no_tera"),
+                "expired": r.get("date_expired_tera"),
+                "status":  r.get("status_tera"),
+            })
+        if flags:
+            sertifikasi_issues.append({
+                "ru_name":       r.get("ru_name"),
+                "refinery_unit": r.get("refinery_unit"),
+                "area":          r.get("area"),
+                "unit":          r.get("unit"),
+                "tag_number":    r.get("tag_number"),
+                "equipment":     r.get("equipment"),
+                "prioritas":     r.get("prioritas"),
+                "sertifikasi":   flags,
+            })
+
+    # Summary per RU
+    summary = {}
+    for r in all_rows:
+        ru = r.get("ru_name") or r.get("refinery_unit") or "Unknown"
+        if ru not in summary:
+            summary[ru] = {"total": 0, "operasi_ok": 0}
+        summary[ru]["total"] += 1
+        if str(r.get("status_operational") or "").strip().lower() == "good":
+            summary[ru]["operasi_ok"] += 1
+    summary_list = [{"ru_name": k, **v} for k, v in sorted(summary.items())]
+
+    return {
+        "all":                all_rows,
+        "tank_issues":        sorted(tank_issues, key=lambda x: (-x["not_good_count"], str(x.get("prioritas") or ""))),
+        "sertifikasi_issues": sertifikasi_issues,
+        "summary_by_ru":      summary_list,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 12. SAP — WO & Notifikasi
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _get_sap_data() -> dict:

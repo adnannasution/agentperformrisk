@@ -433,6 +433,48 @@ def _build_context(data: dict, ru: str = None) -> str:
                 f"Perizinan: {piz_list}"
             )
 
+    # ── READINESS TANK ───────────────────────────────────────────────────────
+    tank = data.get("readiness_tank", {})
+    if tank.get("summary_by_ru"):
+        parts.append("\n=== Readiness Tank — Summary per RU ===")
+        for r in _filter_ru(tank["summary_by_ru"], ru):
+            parts.append(
+                f"RU: {r.get('ru_name')} | "
+                f"Total Tank: {r.get('total')} | "
+                f"Operasi OK: {r.get('operasi_ok')}"
+            )
+    if tank.get("tank_issues"):
+        issues = _filter_ru(tank["tank_issues"], ru)
+        parts.append(f"\n[STATS] Tank dengan Komponen Not Good: {len(issues)}")
+        parts.append("--- Tank — Komponen Bermasalah (Not Good) ---")
+        for r in issues[:15]:
+            komponen_list = ", ".join(
+                f"{k['komponen']} (RTL: {k['rtl'] or '-'})"
+                for k in r.get("komponen_bermasalah", [])
+            )
+            parts.append(
+                f"RU: {r.get('ru_name')} | Area: {r.get('area')} | "
+                f"Tag: {r.get('tag_number')} | Equipment: {r.get('equipment')} | "
+                f"Tipe: {r.get('type_tangki')} | Service: {r.get('service_tangki')} | "
+                f"Prioritas: {r.get('prioritas')} | "
+                f"Status Ops: {r.get('status_operational')} | "
+                f"Not Good ({r.get('not_good_count')}): {komponen_list}"
+            )
+    if tank.get("sertifikasi_issues"):
+        sert = _filter_ru(tank["sertifikasi_issues"], ru)
+        parts.append(f"\n[STATS] Tank dengan Sertifikasi Bermasalah: {len(sert)}")
+        parts.append("--- Tank — Sertifikasi Bermasalah (ATG/COI/TERA) ---")
+        for r in sert[:10]:
+            sert_list = ", ".join(
+                f"{s['jenis']}: {s['status']} (Expired: {s['expired'] or '-'})"
+                for s in r.get("sertifikasi", [])
+            )
+            parts.append(
+                f"RU: {r.get('ru_name')} | Area: {r.get('area')} | "
+                f"Tag: {r.get('tag_number')} | Equipment: {r.get('equipment')} | "
+                f"Prioritas: {r.get('prioritas')} | Sertifikasi: {sert_list}"
+            )
+
     # ── SAP ───────────────────────────────────────────────────────────────────
     sap = data.get("sap", {})
     if sap.get("wo_summary_by_type"):

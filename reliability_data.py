@@ -116,6 +116,7 @@ def get_reliability_data() -> dict:
         "inspection_overdue": _get_inspection_overdue(periode),
         "readiness_jetty":    _get_readiness_jetty(periode),
         "readiness_tank":     _get_readiness_tank(periode),
+        "readiness_spm":      _get_readiness_spm(periode),
         "sap":                _get_sap_data(),
         "laporan_bulanan":    _get_laporan_bulanan(),
     }
@@ -742,7 +743,121 @@ def _get_readiness_tank(periode: str) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 12. SAP — WO & Notifikasi
+# 12. READINESS SPM
+# ─────────────────────────────────────────────────────────────────────────────
+
+_SPM_COMPONENTS = [
+    "mbc", "guard_rail", "lds", "navigation_aid", "buoy_body", "turn_table",
+    "mrb", "swivel_bearing", "cpu", "mooring_hawser", "anchor_chain",
+    "floating_hose", "subsea_hose", "camlock", "cathodic_spl", "cathodic_spm",
+    "expansion_joint", "plem", "pressure_indicator", "submarine_pipeline",
+    "temp_indicator",
+]
+
+
+def _get_readiness_spm(periode: str) -> dict:
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT id, refinery_unit, area, unit, tag_no, equipment,
+                   status_operation,
+                   no_laik_operasi, expired_laik_operasi, status_laik_operasi,
+                   no_ijin_spl, expired_ijin_spl, status_ijin_spl,
+                   periode
+            FROM readiness_spm
+            WHERE periode = %s
+            ORDER BY refinery_unit, area, unit
+        """, (periode,))
+        all_rows = [_enrich_row(dict(r)) for r in cur.fetchall()]
+
+        component_cols = []
+        for c in _SPM_COMPONENTS:
+            component_cols += [f"status_{c}", f"remark_{c}", f"rtl_{c}"]
+        cols_sql = ", ".join(component_cols)
+
+        cur.execute(f"""
+            SELECT id, refinery_unit, area, unit, tag_no, equipment,
+                   status_operation, periode,
+                   {cols_sql}
+            FROM readiness_spm
+            WHERE periode = %s
+            ORDER BY refinery_unit, area, unit
+        """, (periode,))
+        detail_rows = cur.fetchall()
+
+    # Komponen not good per SPM
+    spm_issues = []
+    for r in detail_rows:
+        row = _enrich_row(dict(r))
+        not_good = []
+        for c in _SPM_COMPONENTS:
+            if str(row.get(f"status_{c}") or "").strip().lower() == "not good":
+                not_good.append({
+                    "komponen": c,
+                    "remark":   row.get(f"remark_{c}"),
+                    "rtl":      row.get(f"rtl_{c}"),
+                })
+        if not_good:
+            spm_issues.append({
+                "ru_name":          row.get("ru_name"),
+                "refinery_unit":    row.get("refinery_unit"),
+                "area":             row.get("area"),
+                "unit":             row.get("unit"),
+                "tag_no":           row.get("tag_no"),
+                "equipment":        row.get("equipment"),
+                "status_operation": row.get("status_operation"),
+                "periode":          row.get("periode"),
+                "not_good_count":   len(not_good),
+                "komponen_bermasalah": not_good,
+            })
+
+    # Perizinan bermasalah
+    perizinan_issues = []
+    for r in all_rows:
+        flags = []
+        for label, status_key, expired_key, no_key in [
+            ("LAIK OPERASI", "status_laik_operasi", "expired_laik_operasi", "no_laik_operasi"),
+            ("IJIN SPL",     "status_ijin_spl",     "expired_ijin_spl",     "no_ijin_spl"),
+        ]:
+            sv = str(r.get(status_key) or "").strip().lower()
+            if sv not in ("", "valid", "aktif", "active", "good"):
+                flags.append({
+                    "jenis":   label,
+                    "no":      r.get(no_key),
+                    "expired": r.get(expired_key),
+                    "status":  r.get(status_key),
+                })
+        if flags:
+            perizinan_issues.append({
+                "ru_name":       r.get("ru_name"),
+                "refinery_unit": r.get("refinery_unit"),
+                "area":          r.get("area"),
+                "unit":          r.get("unit"),
+                "tag_no":        r.get("tag_no"),
+                "equipment":     r.get("equipment"),
+                "perizinan":     flags,
+            })
+
+    # Summary per RU
+    summary = {}
+    for r in all_rows:
+        ru = r.get("ru_name") or r.get("refinery_unit") or "Unknown"
+        if ru not in summary:
+            summary[ru] = {"total": 0, "operasi_ok": 0}
+        summary[ru]["total"] += 1
+        if str(r.get("status_operation") or "").strip().lower() == "good":
+            summary[ru]["operasi_ok"] += 1
+    summary_list = [{"ru_name": k, **v} for k, v in sorted(summary.items())]
+
+    return {
+        "all":               all_rows,
+        "spm_issues":        sorted(spm_issues, key=lambda x: -x["not_good_count"]),
+        "perizinan_issues":  perizinan_issues,
+        "summary_by_ru":     summary_list,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 13. SAP — WO & Notifikasi
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _get_sap_data() -> dict:

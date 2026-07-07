@@ -475,6 +475,46 @@ def _build_context(data: dict, ru: str = None) -> str:
                 f"Prioritas: {r.get('prioritas')} | Sertifikasi: {sert_list}"
             )
 
+    # ── READINESS SPM ────────────────────────────────────────────────────────
+    spm = data.get("readiness_spm", {})
+    if spm.get("summary_by_ru"):
+        parts.append("\n=== Readiness SPM — Summary per RU ===")
+        for r in _filter_ru(spm["summary_by_ru"], ru):
+            parts.append(
+                f"RU: {r.get('ru_name')} | "
+                f"Total SPM: {r.get('total')} | "
+                f"Operasi OK: {r.get('operasi_ok')}"
+            )
+    if spm.get("spm_issues"):
+        issues = _filter_ru(spm["spm_issues"], ru)
+        parts.append(f"\n[STATS] SPM dengan Komponen Not Good: {len(issues)}")
+        parts.append("--- SPM — Komponen Bermasalah (Not Good) ---")
+        for r in issues[:15]:
+            komponen_list = ", ".join(
+                f"{k['komponen']} (RTL: {k['rtl'] or '-'})"
+                for k in r.get("komponen_bermasalah", [])
+            )
+            parts.append(
+                f"RU: {r.get('ru_name')} | Area: {r.get('area')} | "
+                f"Tag: {r.get('tag_no')} | Equipment: {r.get('equipment')} | "
+                f"Status Ops: {r.get('status_operation')} | "
+                f"Not Good ({r.get('not_good_count')}): {komponen_list}"
+            )
+    if spm.get("perizinan_issues"):
+        piz = _filter_ru(spm["perizinan_issues"], ru)
+        parts.append(f"\n[STATS] SPM dengan Perizinan Bermasalah: {len(piz)}")
+        parts.append("--- SPM — Perizinan Bermasalah ---")
+        for r in piz[:10]:
+            piz_list = ", ".join(
+                f"{p['jenis']}: {p['status']} (Expired: {p['expired'] or '-'})"
+                for p in r.get("perizinan", [])
+            )
+            parts.append(
+                f"RU: {r.get('ru_name')} | Area: {r.get('area')} | "
+                f"Tag: {r.get('tag_no')} | Equipment: {r.get('equipment')} | "
+                f"Perizinan: {piz_list}"
+            )
+
     # ── SAP ───────────────────────────────────────────────────────────────────
     sap = data.get("sap", {})
     if sap.get("wo_summary_by_type"):

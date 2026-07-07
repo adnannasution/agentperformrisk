@@ -284,7 +284,7 @@ def _get_plo() -> dict:
         cur.execute("""
             SELECT refinery_unit, nomor_ijin, nama_plo,
                    cakupan_unit_plant_kapasitas, date_expired,
-                   sum_of_days_expired, status_plo, remarks, periode
+                   sum_of_days_expired, status_plo, remarks
             FROM plo_monitoring
             ORDER BY refinery_unit, sum_of_days_expired DESC
         """)
@@ -860,12 +860,12 @@ def _src_plo():
         cur.execute("""
             SELECT refinery_unit, nomor_ijin, nama_plo,
                    cakupan_unit_plant_kapasitas, date_expired,
-                   sum_of_days_expired, status_plo, remarks, periode
+                   sum_of_days_expired, status_plo, remarks
             FROM plo_monitoring ORDER BY refinery_unit, sum_of_days_expired DESC
         """)
         rows = [_enrich_row(dict(r)) for r in cur.fetchall()]
     cols = ["ru_name", "refinery_unit", "nomor_ijin", "nama_plo",
-            "cakupan_unit_plant_kapasitas", "date_expired", "sum_of_days_expired", "status_plo", "remarks", "periode"]
+            "cakupan_unit_plant_kapasitas", "date_expired", "sum_of_days_expired", "status_plo", "remarks"]
     return rows, cols, "PLO Monitoring — Perizinan Legalitas Operasional"
 
 

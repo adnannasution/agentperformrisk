@@ -174,7 +174,7 @@ def _build_context(data: dict, ru: str = None) -> str:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
                 f"{r.get('actual_target')}: {pct_val:.2f}% | "
-                f"Bulan: {r.get('month_update')} | Warna: {r.get('color')}"
+                f"Periode: {r.get('periode')} | Warna: {r.get('color')}"
             )
 
     # ── PLO (Perizinan Legalitas Operasional) ────────────────────────────────
@@ -202,14 +202,14 @@ def _build_context(data: dict, ru: str = None) -> str:
                 f"{r.get('target_realisasi')}: {r.get('value')} | "
                 f"Target: {r.get('target')} | "
                 f"Plan/Unplan: {r.get('plan_unplan')} | "
-                f"Periode: {r.get('month_update')}"
+                f"Periode: {r.get('periode')}"
             )
     if paf.get("trend"):
         parts.append("--- Trend PAF Realisasi ---")
         for r in _filter_ru(paf["trend"], ru)[:12]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | "
-                f"Bulan: {r.get('month_update')} | "
+                f"Periode: {r.get('periode')} | "
                 f"Avg Realisasi: {r.get('avg_value')}"
             )
 
@@ -222,7 +222,7 @@ def _build_context(data: dict, ru: str = None) -> str:
         for r in filtered_issues[:25]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | Type: {r.get('type')} | "
-                f"Tanggal: {r.get('date')} | Issue: {r.get('issue')}"
+                f"Periode: {r.get('periode')} | Issue: {r.get('issue')}"
             )
 
     # ── BAD ACTOR ─────────────────────────────────────────────────────────────
@@ -245,7 +245,7 @@ def _build_context(data: dict, ru: str = None) -> str:
                 f"RU: {r.get('ru_name') or r.get('ru')} | "
                 f"Tag: {r.get('equipment_tag')} | "
                 f"Problem: {r.get('problem')} | Status: {r.get('status')} | "
-                f"Action: {r.get('action_plan')} | Target: {r.get('target_date')}"
+                f"Action: {r.get('action_plan')} | Periode: {r.get('periode')}"
             )
 
     # ── ICU ───────────────────────────────────────────────────────────────────
@@ -324,30 +324,6 @@ def _build_context(data: dict, ru: str = None) -> str:
                 f"Rekomendasi: {r.get('rekomendasi')} | "
                 f"Traffic: {r.get('traffic')} | "
                 f"PIC: {r.get('pic')} | Target: {r.get('target')}"
-            )
-
-    # ── IRKAP ─────────────────────────────────────────────────────────────────
-    irkap = data.get("irkap_summary", {})
-    if irkap.get("program_summary"):
-        parts.append("\n=== IRKAP Program Summary per RU ===")
-        for r in _filter_ru(irkap["program_summary"], ru):
-            parts.append(
-                f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
-                f"Total: {r.get('total_program')} | "
-                f"On Track: {r.get('on_track')} | "
-                f"Delay: {r.get('delay')} | "
-                f"Carry Over: {r.get('carry_over')} | "
-                f"Has Top Risk: {r.get('has_top_risk')}"
-            )
-    if irkap.get("actual_summary"):
-        parts.append("--- IRKAP Actual Completion ---")
-        for r in _filter_ru(irkap["actual_summary"], ru):
-            parts.append(
-                f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
-                f"Total: {r.get('total')} | "
-                f"Completed: {r.get('completed')} | "
-                f"Delayed: {r.get('delayed')} | "
-                f"Avg Completion: {r.get('avg_completion_pct')}%"
             )
 
     # ── CRITICAL EQUIPMENT ────────────────────────────────────────────────────

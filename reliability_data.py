@@ -380,7 +380,7 @@ def _get_critical_equipment() -> dict:
 
         cur.execute("""
             SELECT refinery_unit, type_equipment,
-                   equipment, highlight_issue, corrective_action,
+                   highlight_issue, corrective_action,
                    target_corrective, traffic_corrective,
                    mitigasi_action, traffic_mitigasi, periode
             FROM critical_eqp_utl
@@ -764,7 +764,7 @@ def _src_critical_eqp():
         cur.execute("""
             SELECT refinery_unit,
                    type_equipment AS unit_proses,
-                   equipment,
+                   NULL AS equipment,
                    highlight_issue, corrective_action,
                    target_corrective, traffic_corrective,
                    mitigasi_action,

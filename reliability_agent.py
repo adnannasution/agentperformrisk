@@ -160,6 +160,9 @@ def _count_by_ru(rows: list, ru: str, key_name: str = "ru_name") -> str:
 def _build_context(data: dict, ru: str = None) -> str:
     """Build LLM context string. If ru is set, filter rows to that RU only."""
     parts = []
+    periode_aktif = data.get("periode_aktif", "")
+    if periode_aktif:
+        parts.append(f"[PERIODE AKTIF: {periode_aktif}]")
     if ru:
         parts.append(f"[SCOPE: Analisis terfokus pada {ru} saja]\n")
 

@@ -160,9 +160,6 @@ def _count_by_ru(rows: list, ru: str, key_name: str = "ru_name") -> str:
 def _build_context(data: dict, ru: str = None) -> str:
     """Build LLM context string. If ru is set, filter rows to that RU only."""
     parts = []
-    periode_aktif = data.get("periode_aktif", "")
-    if periode_aktif:
-        parts.append(f"[PERIODE AKTIF: {periode_aktif}]")
     if ru:
         parts.append(f"[SCOPE: Analisis terfokus pada {ru} saja]\n")
 
@@ -177,7 +174,7 @@ def _build_context(data: dict, ru: str = None) -> str:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('refinery_unit')} | "
                 f"{r.get('actual_target')}: {pct_val:.2f}% | "
-                f"Periode: {r.get('periode')} | Warna: {r.get('color')}"
+                f"Warna: {r.get('color')}"
             )
 
     # ── PLO (Perizinan Legalitas Operasional) ────────────────────────────────
@@ -204,15 +201,13 @@ def _build_context(data: dict, ru: str = None) -> str:
                 f"RU: {r.get('ru_name') or r.get('ru')} | Type: {r.get('type')} | "
                 f"{r.get('target_realisasi')}: {r.get('value')} | "
                 f"Target: {r.get('target')} | "
-                f"Plan/Unplan: {r.get('plan_unplan')} | "
-                f"Periode: {r.get('periode')}"
+                f"Plan/Unplan: {r.get('plan_unplan')}"
             )
     if paf.get("trend"):
         parts.append("--- Trend PAF Realisasi ---")
         for r in _filter_ru(paf["trend"], ru)[:12]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | "
-                f"Periode: {r.get('periode')} | "
                 f"Avg Realisasi: {r.get('avg_value')}"
             )
 
@@ -225,7 +220,7 @@ def _build_context(data: dict, ru: str = None) -> str:
         for r in filtered_issues[:25]:
             parts.append(
                 f"RU: {r.get('ru_name') or r.get('ru')} | Type: {r.get('type')} | "
-                f"Periode: {r.get('periode')} | Issue: {r.get('issue')}"
+                f"Issue: {r.get('issue')}"
             )
 
     # ── BAD ACTOR ─────────────────────────────────────────────────────────────
@@ -248,7 +243,7 @@ def _build_context(data: dict, ru: str = None) -> str:
                 f"RU: {r.get('ru_name') or r.get('ru')} | "
                 f"Tag: {r.get('equipment_tag')} | "
                 f"Problem: {r.get('problem')} | Status: {r.get('status')} | "
-                f"Action: {r.get('action_plan')} | Periode: {r.get('periode')}"
+                f"Action: {r.get('action_plan')}"
             )
 
     # ── ICU ───────────────────────────────────────────────────────────────────
@@ -773,14 +768,11 @@ def run_reliability_agent(mode: str = "weekly", ru: str = None) -> dict:
     analysis_for_dash = analysis_content[:9000] if len(analysis_content) > 9000 else analysis_content
     print(f"[Dashboard LLM] sending analysis length={len(analysis_for_dash)} chars")
     scope_desc = f"Refinery Unit: {ru}" if ru else "Scope: Nasional / Seluruh RU (Overall)"
-    periode_aktif = data.get("periode_aktif", "")
-    periode_label = f"Periode Aktif: {periode_aktif}" if periode_aktif else ""
     dashboard_user_msg = (
         f"Buat isi body infografis ({scope_label}{label}) dengan struktur/class IDENTIK seperti contoh, "
         f"berisi data dari analisis reliability berikut.\n"
         f"{scope_desc}\n"
-        + (f"{periode_label}\n" if periode_label else "")
-        + f"PENTING: Gunakan bulan/periode '{periode_aktif}' pada semua judul, header, dan label — jangan gunakan bulan lain.\n\n"
+        f"PENTING: Jangan tampilkan bulan atau periode apa pun pada judul, header, maupun label.\n\n"
         f"=== HASIL ANALISIS ===\n{analysis_for_dash}"
     )
     dashboard_error = ""

@@ -217,7 +217,7 @@ def _get_icu(periode: str) -> dict:
                    permanent_solution, progress,
                    target_closed, periode
             FROM icu_monitoring
-            WHERE icu_status NOT ILIKE '%close%' AND periode = %s
+            WHERE icu_status NOT ILIKE '%%close%%' AND periode = %s
             ORDER BY ru, periode DESC NULLS LAST
         """, (periode,))
         open_icu = cur.fetchall()
@@ -346,7 +346,7 @@ def _get_rcps_rekomendasi(periode: str) -> dict:
                    target, recommendation_category, remark, periode
             FROM rcps_rekomendasi
             WHERE periode = %s
-              AND (traffic NOT ILIKE '%green%'
+              AND (traffic NOT ILIKE '%%green%%'
                OR traffic IS NULL)
             ORDER BY kilang,
                      CASE traffic

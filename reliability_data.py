@@ -90,33 +90,23 @@ def ensure_reliability_schema():
 # MAIN FUNCTION
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _get_latest_periode() -> str:
-    """Ambil periode terbaru dari tabel paf sebagai acuan bulan generate."""
-    with _cursor() as cur:
-        cur.execute("SELECT MAX(periode) AS latest FROM paf WHERE code_current = 1")
-        row = cur.fetchone()
-        return str(row["latest"]) if row and row["latest"] else None
-
-
 def get_reliability_data() -> dict:
     """Agregasi semua data reliability dari database → 1 dict untuk agent."""
-    periode = _get_latest_periode()
     return {
-        "periode_aktif":      periode,
-        "paf":                _get_paf(periode),
-        "issue_paf":          _get_issue_paf(periode),
-        "bad_actor":          _get_bad_actor(periode),
-        "icu":                _get_icu(periode),
-        "boc_mtbf":           _get_boc(periode),
-        "oa":                 _get_oa(periode),
-        "plo":                _get_plo(periode),
-        "rcps":               _get_rcps(periode),
-        "rcps_rekomendasi":   _get_rcps_rekomendasi(periode),
-        "critical_equipment": _get_critical_equipment(periode),
-        "inspection_overdue": _get_inspection_overdue(periode),
-        "readiness_jetty":    _get_readiness_jetty(periode),
-        "readiness_tank":     _get_readiness_tank(periode),
-        "readiness_spm":      _get_readiness_spm(periode),
+        "paf":                _get_paf(),
+        "issue_paf":          _get_issue_paf(),
+        "bad_actor":          _get_bad_actor(),
+        "icu":                _get_icu(),
+        "boc_mtbf":           _get_boc(),
+        "oa":                 _get_oa(),
+        "plo":                _get_plo(),
+        "rcps":               _get_rcps(),
+        "rcps_rekomendasi":   _get_rcps_rekomendasi(),
+        "critical_equipment": _get_critical_equipment(),
+        "inspection_overdue": _get_inspection_overdue(),
+        "readiness_jetty":    _get_readiness_jetty(),
+        "readiness_tank":     _get_readiness_tank(),
+        "readiness_spm":      _get_readiness_spm(),
         "sap":                _get_sap_data(),
         "laporan_bulanan":    _get_laporan_bulanan(),
     }
@@ -126,15 +116,16 @@ def get_reliability_data() -> dict:
 # 1. PAF — Plant Availability Factor
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _get_paf(periode: str) -> dict:
+def _get_paf() -> dict:
     with _cursor() as cur:
         cur.execute("""
             SELECT ru, type, target_realisasi, value, target,
                    plan_unplan, periode
             FROM paf
-            WHERE code_current = 1 AND periode = %s
+            WHERE code_current = 1
+              AND periode = (SELECT MAX(periode) FROM paf WHERE code_current = 1)
             ORDER BY ru, type
-        """, (periode,))
+        """)
         current = cur.fetchall()
 
         cur.execute("""
@@ -158,14 +149,15 @@ def _get_paf(periode: str) -> dict:
 # 2. ISSUE PAF
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _get_issue_paf(periode: str) -> list:
+def _get_issue_paf() -> list:
     with _cursor() as cur:
         cur.execute("""
             SELECT ru, type, issue, periode
             FROM issue_paf
-            WHERE code_current = 1 AND periode = %s
-            ORDER BY ru, periode DESC
-        """, (periode,))
+            WHERE code_current = 1
+              AND periode = (SELECT MAX(periode) FROM issue_paf WHERE code_current = 1)
+            ORDER BY ru
+        """)
         return [_enrich_row(dict(r)) for r in cur.fetchall()]
 
 
@@ -173,16 +165,16 @@ def _get_issue_paf(periode: str) -> list:
 # 3. BAD ACTOR
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _get_bad_actor(periode: str) -> dict:
+def _get_bad_actor() -> dict:
     with _cursor() as cur:
         cur.execute("""
             SELECT ru, equipment, status, problem,
                    action_plan, category_action_plan,
                    progress, periode
             FROM bad_actor_monitoring
-            WHERE periode = %s
-            ORDER BY ru, periode DESC NULLS LAST
-        """, (periode,))
+            WHERE periode = (SELECT MAX(periode) FROM bad_actor_monitoring)
+            ORDER BY ru
+        """)
         all_actors = cur.fetchall()
 
         cur.execute("""
@@ -209,7 +201,7 @@ def _get_bad_actor(periode: str) -> dict:
 # 4. ICU — Integrity Concern Unit
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _get_icu(periode: str) -> dict:
+def _get_icu() -> dict:
     with _cursor() as cur:
         cur.execute("""
             SELECT ru, equipment, icu_status, issue,
@@ -217,9 +209,10 @@ def _get_icu(periode: str) -> dict:
                    permanent_solution, progress,
                    target_closed, periode
             FROM icu_monitoring
-            WHERE icu_status NOT ILIKE '%%close%%' AND periode = %s
-            ORDER BY ru, periode DESC NULLS LAST
-        """, (periode,))
+            WHERE icu_status NOT ILIKE '%close%'
+              AND periode = (SELECT MAX(periode) FROM icu_monitoring)
+            ORDER BY ru
+        """)
         open_icu = cur.fetchall()
 
         cur.execute("""
@@ -244,17 +237,18 @@ def _get_icu(periode: str) -> dict:
 # 5. BOC — MTBF & MTTR
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _get_boc(periode: str) -> dict:
+def _get_boc() -> dict:
     with _cursor() as cur:
         cur.execute("""
             SELECT ru, equipment, grup_equipment,
                    status, frequency, running_hours,
                    mttr, mtbf, hasil, periode
             FROM boc
-            WHERE mtbf IS NOT NULL AND mtbf > 0 AND periode = %s
+            WHERE mtbf IS NOT NULL AND mtbf > 0
+              AND periode = (SELECT MAX(periode) FROM boc)
             ORDER BY mtbf ASC
             LIMIT 20
-        """, (periode,))
+        """)
         low_mtbf = cur.fetchall()
 
         cur.execute("""
@@ -280,14 +274,14 @@ def _get_boc(periode: str) -> dict:
 # 6a. OA Monitoring
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _get_oa(periode: str) -> list:
+def _get_oa() -> list:
     with _cursor() as cur:
         cur.execute("""
             SELECT refinery_unit, actual_target, value_perc, periode, color
             FROM oa_monitoring
-            WHERE periode = %s
+            WHERE periode = (SELECT MAX(periode) FROM oa_monitoring)
             ORDER BY refinery_unit, actual_target
-        """, (periode,))
+        """)
         return [_enrich_row(dict(r)) for r in cur.fetchall()]
 
 
@@ -295,7 +289,7 @@ def _get_oa(periode: str) -> list:
 # 6b. PLO Monitoring
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _get_plo(periode: str) -> dict:
+def _get_plo() -> dict:
     with _cursor() as cur:
         cur.execute("""
             SELECT refinery_unit, nomor_ijin, nama_plo,
@@ -320,33 +314,32 @@ def _get_plo(periode: str) -> dict:
 # 7. RCPS
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _get_rcps(periode: str) -> list:
+def _get_rcps() -> list:
     with _cursor() as cur:
         cur.execute("""
             SELECT kilang, rcps_no, judul_rcps, disiplin,
                    criticallity, traffic, sum_of_progress, periode
             FROM rcps
-            WHERE periode = %s
+            WHERE periode = (SELECT MAX(periode) FROM rcps)
             ORDER BY kilang,
                      CASE traffic
                        WHEN 'Red'    THEN 1
                        WHEN 'Yellow' THEN 2
                        WHEN 'Green'  THEN 3
-                       ELSE 4 END,
-                     periode DESC
-        """, (periode,))
+                       ELSE 4 END
+        """)
         return [_enrich_row(dict(r)) for r in cur.fetchall()]
 
 
-def _get_rcps_rekomendasi(periode: str) -> dict:
+def _get_rcps_rekomendasi() -> dict:
     with _cursor() as cur:
         cur.execute("""
             SELECT kilang, rcps_no, judul_rcps,
                    rekomendasi, traffic, pic,
                    target, recommendation_category, remark, periode
             FROM rcps_rekomendasi
-            WHERE periode = %s
-              AND (traffic NOT ILIKE '%%green%%'
+            WHERE periode = (SELECT MAX(periode) FROM rcps_rekomendasi)
+              AND (traffic NOT ILIKE '%green%'
                OR traffic IS NULL)
             ORDER BY kilang,
                      CASE traffic
@@ -354,7 +347,7 @@ def _get_rcps_rekomendasi(periode: str) -> dict:
                        WHEN 'Yellow' THEN 2
                        ELSE 3 END,
                      target ASC NULLS LAST
-        """, (periode,))
+        """)
         open_rekom = cur.fetchall()
 
         cur.execute("""
@@ -362,10 +355,10 @@ def _get_rcps_rekomendasi(periode: str) -> dict:
                    COALESCE(traffic, 'Tidak Ada') AS traffic,
                    COUNT(*) AS total
             FROM rcps_rekomendasi
-            WHERE periode = %s
+            WHERE periode = (SELECT MAX(periode) FROM rcps_rekomendasi)
             GROUP BY kilang, traffic
             ORDER BY kilang, total DESC
-        """, (periode,))
+        """)
         traffic_summary = cur.fetchall()
 
         return {
@@ -378,7 +371,7 @@ def _get_rcps_rekomendasi(periode: str) -> dict:
 # 8. CRITICAL EQUIPMENT
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _get_critical_equipment(periode: str) -> dict:
+def _get_critical_equipment() -> dict:
     with _cursor() as cur:
         cur.execute("""
             SELECT refinery_unit, unit_proses, equipment,
@@ -389,14 +382,14 @@ def _get_critical_equipment(periode: str) -> dict:
             FROM critical_eqp_prim_sec
             WHERE highlight_issue IS NOT NULL
               AND highlight_issue != ''
-              AND periode = %s
+              AND periode = (SELECT MAX(periode) FROM critical_eqp_prim_sec)
             ORDER BY refinery_unit,
                      CASE UPPER(traffic_corrective)
                        WHEN 'RED'    THEN 1
                        WHEN 'YELLOW' THEN 2
                        WHEN 'GREEN'  THEN 3
                        ELSE 4 END
-        """, (periode,))
+        """)
         prim_sec = cur.fetchall()
 
         cur.execute("""
@@ -407,14 +400,14 @@ def _get_critical_equipment(periode: str) -> dict:
             FROM critical_eqp_utl
             WHERE highlight_issue IS NOT NULL
               AND highlight_issue != ''
-              AND periode = %s
+              AND periode = (SELECT MAX(periode) FROM critical_eqp_utl)
             ORDER BY refinery_unit,
                      CASE UPPER(traffic_corrective)
                        WHEN 'RED'    THEN 1
                        WHEN 'YELLOW' THEN 2
                        WHEN 'GREEN'  THEN 3
                        ELSE 4 END
-        """, (periode,))
+        """)
         utl = cur.fetchall()
 
         cur.execute("""
@@ -426,10 +419,10 @@ def _get_critical_equipment(periode: str) -> dict:
                    SUM(CASE WHEN UPPER(traffic_corrective) = 'GREEN'
                              THEN 1 ELSE 0 END) AS green_count
             FROM critical_eqp_prim_sec
-            WHERE periode = %s
+            WHERE periode = (SELECT MAX(periode) FROM critical_eqp_prim_sec)
             GROUP BY refinery_unit
             ORDER BY red_count DESC
-        """, (periode,))
+        """)
         traffic_summary = cur.fetchall()
 
         return {
@@ -443,7 +436,7 @@ def _get_critical_equipment(periode: str) -> dict:
 # 9. INSPECTION OVERDUE
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _get_inspection_overdue(periode: str) -> dict:
+def _get_inspection_overdue() -> dict:
     with _cursor() as cur:
         cur.execute("""
             SELECT refinery_unit, area, unit, equipment,
@@ -498,9 +491,8 @@ _JETTY_COMPONENTS = [
 ]
 
 
-def _get_readiness_jetty(periode: str) -> dict:
+def _get_readiness_jetty() -> dict:
     with _cursor() as cur:
-        # Semua jetty periode aktif
         cur.execute("""
             SELECT id, refinery_unit, area, unit, tag_no, equipment,
                    status_operation,
@@ -509,9 +501,9 @@ def _get_readiness_jetty(periode: str) -> dict:
                    no_isps, expired_isps, status_isps,
                    periode
             FROM readiness_jetty
-            WHERE periode = %s
+            WHERE periode = (SELECT MAX(periode) FROM readiness_jetty)
             ORDER BY refinery_unit, area, unit
-        """, (periode,))
+        """)
         all_rows = [_enrich_row(dict(r)) for r in cur.fetchall()]
 
         # Ambil semua kolom komponen per row secara dinamis
@@ -525,9 +517,9 @@ def _get_readiness_jetty(periode: str) -> dict:
                    status_operation, periode,
                    {cols_sql}
             FROM readiness_jetty
-            WHERE periode = %s
+            WHERE periode = (SELECT MAX(periode) FROM readiness_jetty)
             ORDER BY refinery_unit, area, unit
-        """, (periode,))
+        """)
         detail_rows = cur.fetchall()
 
     # Proses: identifikasi komponen not good per jetty
@@ -617,9 +609,8 @@ _TANK_COMPONENTS = [
 ]
 
 
-def _get_readiness_tank(periode: str) -> dict:
+def _get_readiness_tank() -> dict:
     with _cursor() as cur:
-        # Data identitas + sertifikasi
         cur.execute("""
             SELECT id, refinery_unit, area, unit, tag_number, equipment,
                    type_tangki, service_tangki, prioritas, status_operational,
@@ -629,9 +620,9 @@ def _get_readiness_tank(periode: str) -> dict:
                    date_expired_tera, status_tera, cert_no_tera,
                    periode
             FROM readiness_tank
-            WHERE periode = %s
+            WHERE periode = (SELECT MAX(periode) FROM readiness_tank)
             ORDER BY refinery_unit, prioritas, area, unit
-        """, (periode,))
+        """)
         all_rows = [_enrich_row(dict(r)) for r in cur.fetchall()]
 
         # Data komponen per row
@@ -645,9 +636,9 @@ def _get_readiness_tank(periode: str) -> dict:
                    type_tangki, service_tangki, prioritas, status_operational, periode,
                    {cols_sql}
             FROM readiness_tank
-            WHERE periode = %s
+            WHERE periode = (SELECT MAX(periode) FROM readiness_tank)
             ORDER BY refinery_unit, prioritas, area, unit
-        """, (periode,))
+        """)
         detail_rows = cur.fetchall()
 
     # Komponen not good per tank
@@ -755,7 +746,7 @@ _SPM_COMPONENTS = [
 ]
 
 
-def _get_readiness_spm(periode: str) -> dict:
+def _get_readiness_spm() -> dict:
     with _cursor() as cur:
         cur.execute("""
             SELECT id, refinery_unit, area, unit, tag_no, equipment,
@@ -764,9 +755,9 @@ def _get_readiness_spm(periode: str) -> dict:
                    no_ijin_spl, expired_ijin_spl, status_ijin_spl,
                    periode
             FROM readiness_spm
-            WHERE periode = %s
+            WHERE periode = (SELECT MAX(periode) FROM readiness_spm)
             ORDER BY refinery_unit, area, unit
-        """, (periode,))
+        """)
         all_rows = [_enrich_row(dict(r)) for r in cur.fetchall()]
 
         component_cols = []
@@ -779,9 +770,9 @@ def _get_readiness_spm(periode: str) -> dict:
                    status_operation, periode,
                    {cols_sql}
             FROM readiness_spm
-            WHERE periode = %s
+            WHERE periode = (SELECT MAX(periode) FROM readiness_spm)
             ORDER BY refinery_unit, area, unit
-        """, (periode,))
+        """)
         detail_rows = cur.fetchall()
 
     # Komponen not good per SPM

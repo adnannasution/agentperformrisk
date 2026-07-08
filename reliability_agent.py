@@ -773,10 +773,14 @@ def run_reliability_agent(mode: str = "weekly", ru: str = None) -> dict:
     analysis_for_dash = analysis_content[:9000] if len(analysis_content) > 9000 else analysis_content
     print(f"[Dashboard LLM] sending analysis length={len(analysis_for_dash)} chars")
     scope_desc = f"Refinery Unit: {ru}" if ru else "Scope: Nasional / Seluruh RU (Overall)"
+    periode_aktif = data.get("periode_aktif", "")
+    periode_label = f"Periode Aktif: {periode_aktif}" if periode_aktif else ""
     dashboard_user_msg = (
         f"Buat isi body infografis ({scope_label}{label}) dengan struktur/class IDENTIK seperti contoh, "
         f"berisi data dari analisis reliability berikut.\n"
-        f"{scope_desc}\n\n"
+        f"{scope_desc}\n"
+        + (f"{periode_label}\n" if periode_label else "")
+        + f"PENTING: Gunakan bulan/periode '{periode_aktif}' pada semua judul, header, dan label — jangan gunakan bulan lain.\n\n"
         f"=== HASIL ANALISIS ===\n{analysis_for_dash}"
     )
     dashboard_error = ""

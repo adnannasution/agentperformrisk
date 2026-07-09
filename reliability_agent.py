@@ -22,7 +22,7 @@ llm_dashboard = ChatOpenAI(
     api_key=DINOIKI_API_KEY,
     base_url="https://ai.dinoiki.com/v1",
     temperature=0.4,
-    max_tokens=20000,
+    max_tokens=16000,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
